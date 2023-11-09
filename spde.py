@@ -21,7 +21,7 @@ else:
 # N: number of data points
 # rho: spatial correlation
 # vvv: variance
-def gen_non_same(N, rho, vvv):
+def gen_non_same(N, rho, vvv, nugget):
     n = N
     random.seed(123)
     length = 20
@@ -40,7 +40,7 @@ def gen_non_same(N, rho, vvv):
     corr = np.exp(-distance / rho)
     # Cholesky decomposition and generate correlated data
     L = np.linalg.cholesky(vvv*corr)
-    z = np.random.normal(0, 1, n)
+    z = np.random.normal(0, nugget, n)
     Y = np.dot(L, z)
     return X, Y
 

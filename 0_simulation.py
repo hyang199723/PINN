@@ -12,13 +12,15 @@ import numpy as np
 import pandas as pd
 #%% Vertical more correlated
 rho = 3
-vvv = 1
-N = 200
-ts = 10 # 10 time steps
+vvv = 2
+N = 2000
+nugget = 1
 
-X, Y = gen_non_same(N, rho, vvv)
+X, Y = gen_non_same(N, rho, vvv, nugget)
 X = pd.DataFrame(X)
 Y = pd.DataFrame(Y)
 data = pd.concat([X, Y], axis = 1)
 
-data.to_csv("non_stat_200.csv")
+data.to_csv("non_stat_2000.csv")
+
+# %%

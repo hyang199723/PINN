@@ -28,7 +28,7 @@ Y = data[:, 3]
 
 X_train, X_test, y_train, y_test = random_split(X, Y)
 
-alphas = [35, 50, 60]
+alphas = [0, 2, 10]
 iters = 10 # Number of replications for each alpha
 nnn = len(alphas)
 MSE = np.zeros(nnn)
@@ -50,3 +50,22 @@ for i in range(0, nnn):
 #%%
 temp = MSE / iters
 plt.plot(alphas, temp)
+# %%
+alpha = 0.1
+model = model_train_pinn(X_train, y_train, layers, lr, epochs, alpha, device)
+X_train_tc = torch.from_numpy(X_train).float().to(device)
+y_train_pred = model(X_train_tc)
+y_pred = y_train_pred.cpu().detach().numpy().reshape(-1)
+plt.subplot(1,2,1)
+plt.scatter(X_train[:,1], X_train[:,2], s = 20, c = y_pred)
+plt.title("Training predicted value")
+plt.subplot(1,2,2)
+plt.scatter(X_train[:,1], X_train[:,2], s = 20, c = y_train)
+plt.colorbar()
+plt.title("Training true value")
+plt.show()
+
+y_pred_tc = model(X_test)
+y_pred = y_pred_tc.cpu().detach().numpy().reshape(-1)
+mse = np.mean((y_pred - y_test)**2)
+# %%
