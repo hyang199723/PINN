@@ -9,7 +9,9 @@ import math
 from scipy.spatial import distance_matrix
 import torch.nn as nn
 import torch.optim as optim
+from IPython.display import clear_output
 import scipy
+from scipy.stats import gaussian_kde, norm
 from collections import OrderedDict
 if torch.cuda.is_available():
     device = torch.device('cuda:1')
@@ -102,7 +104,7 @@ class FeedForwardNN(nn.Module):
         self.depth = len(layers) - 1
         
         # set up layer order dict
-        self.activation = torch.nn.Tanh
+        self.activation = torch.nn.ReLU
         
         layer_list = list()
         for i in range(self.depth - 1): 
@@ -152,22 +154,17 @@ def out_support_split(X, Y):
 
 # Deep neural network without PINN
 # Layers: A layer specifying the NN dimensions
-def model_train_dnn(X, Y, X_test, y_test, layers, lr, epochs, split = "random"):
+def model_train_dnn(X_train, y_train, layers, lr, epochs, device):
     # Train-test split
-    Y = Y.reshape(-1, 1)
-    if split == "random":
-        X_train, X_test, y_train, y_test = random_split(X, Y)
-    else:
-        X_train, X_test, y_train, y_test = out_support_split(X, Y)
-    
+    y_train = y_train.reshape(-1, 1)
     # Initialize model, loss, and optimizer
-    X_train_tc = torch.from_numpy(X_train).to(torch.float32)
-    y_train_tc = torch.from_numpy(y_train).to(torch.float32)
+    X_train_tc = torch.from_numpy(X_train).float().to(device)
+    y_train_tc = torch.from_numpy(y_train).float().to(device)
     
     layers = layers
-    model = FeedForwardNN(layers)
+    model = FeedForwardNN(layers).to(device)
     criterion = nn.MSELoss()
-    optimizer = torch.optim.SGD(model.parameters(), lr=lr)
+    optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=1e-3 / 200)
     model.train()
     for epoch in range(epochs):
         y_pred = model(X_train_tc)
@@ -183,13 +180,35 @@ def model_train_dnn(X, Y, X_test, y_test, layers, lr, epochs, split = "random"):
         optimizer.step()
     return model
 
+# Function to update the loss plot
+def live_plot(loss, kl, total_loss):
+    clear_output(wait=True)
+    plt.subplot(1,3,1)
+    plt.plot(loss)
+    plt.title('Training Loss')
+    plt.xlabel('Batch number')
+    plt.ylabel('Loss')
+    plt.subplot(1,3,2)
+    plt.plot(kl)
+    plt.title('KL divergence')
+    plt.xlabel('Batch number')
+    plt.ylabel('KL')
+    plt.subplot(1,3,3)
+    plt.plot(total_loss)
+    plt.title('Total loss')
+    plt.xlabel('Batch number')
+    plt.ylabel('Total')
+    plt.show()
+
+
 # Second order loss function SPDE
 def loss_func(X, y_true, model, optimizer, alpha, device):
+    optimizer.zero_grad()
+    dims = X.shape[1]
     x0 = X[:, 0].reshape(-1 ,1)
     x1 = X[:, 1].reshape(-1 ,1)
     x2 = X[:, 2].reshape(-1 ,1)
-    optimizer.zero_grad()
-    XX = torch.cat((x0, x1, x2), dim = 1).to(device)
+    XX = torch.cat((x0, x1, x2, X[:, 3:dims]), dim = 1).to(device)
     y_pred = model(XX)
     mse_loss = torch.mean((y_true - y_pred) ** 2) # MSE loss
     # Calculate gradient
@@ -219,61 +238,57 @@ def loss_func(X, y_true, model, optimizer, alpha, device):
         )[0]
     out = y_xx + y_zz
     # Second order deravative should follow normal distribution
-    # kappa?
-    # Convert range to kappa
     # kappa should be half of the range
-    W = 3/2 * y_pred - out
+    W_init = 0.1/2 * y_pred - out
+    PINN = torch.mean(W_init)
+    W = W_init.cpu().detach().numpy()
+    W = W.reshape(-1)
     # KDE 
-    kde = gauss_kde(W, -10, 10, 10000)
-    # KL_divergence
-    kde = kde.cpu().detach().numpy()
-    kurtosis = scipy.stats.kurtosis(kde)
-    skew = scipy.stats.skew(kde)
-    mean = np.mean(kde)
-   # W = out
-    #target = np.random.normal(size = len(out))
-    #gauss_kde(t, -5,5,100)
-    #f = torch.mean(W ** 2)
-    loss = mse_loss + alpha * (skew + mean + kurtosis)# Weight 
-    # print(loss) 
+    kde = gaussian_kde(W)
+    x = np.linspace(min(W), max(W), 1000) # Define the range over which to evaluate the KDE and theoretical PDF
+    empirical_pdf = kde(x) # Evaluate the estimated empirical PDF
+    theoretical_pdf = norm.pdf(x, 0, 0.01) 
+    epsilon = 1e-10  # A small value to ensure numerical stability
+    empirical_pdf = np.maximum(empirical_pdf, epsilon)
+    empirical_tc = torch.tensor(empirical_pdf, requires_grad=True) # Convert to torch object
+    theoretical_pdf = np.maximum(theoretical_pdf, epsilon)
+    theoretical_tc = torch.tensor(theoretical_pdf, requires_grad=True)
+    y = empirical_tc * torch.log(empirical_tc / theoretical_tc)
+    x = torch.tensor(x)
+    kl = torch.trapezoid(y, x)
+    kl = torch.tensor(kl, requires_grad=True).float().to(device)
+    kl_divergence = np.trapz(empirical_pdf * np.log(empirical_pdf / theoretical_pdf), x)
+
+    SINN = alpha * kl
+    SINN = torch.tensor(SINN, requires_grad=True).float().to(device)
+    loss = mse_loss + PINN
     loss.backward()
-    return loss
+    return mse_loss, kl_divergence, loss
 
 # PINN
 # Return the predicted values
-def model_train_pinn(X_train, y_train, layers, lr, epochs, alpha, device):
+def model_train_pinn(X_train, y_train, layers, lr, epochs, alpha, momentum, device):
     # Train-test split
     y_train = y_train.reshape(-1, 1)
     # Initialize model, loss, and optimizer
     y_train_tc = torch.from_numpy(y_train).float().to(device)
     X_train_tc = torch.tensor(X_train, requires_grad=True).float().to(device)
-    
-    
     layers = layers
     model = FeedForwardNN(layers).to(device)
     # optimizer = torch.optim.SGD(model.parameters(), lr=2e-3)
-    optimizer = torch.optim.SGD(model.parameters(), lr=lr)
+    optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=1e-3 / 200)
     model.train()
+    loss_values = []
+    kl_values = []
+    total_values = []
     for epoch in range(epochs):
-        loss_func(X_train_tc, y_train_tc, model, optimizer, alpha, device)
+        mse_loss, kl, total_loss = loss_func(X_train_tc, y_train_tc, model, optimizer, alpha, device)
+        loss_values.append(mse_loss.cpu().detach().numpy())
+        total_values.append(total_loss.cpu().detach().numpy())
+        kl_values.append(kl)
+        live_plot(loss_values, kl_values, total_values)
         optimizer.step()
     return model
-
-# kde
-def gauss_kde(x, lower, upper, n, bw=None):
-    x = torch.ravel(x)
-    grid = torch.linspace(lower, upper, n, device=x.device)
-    if bw is None:
-        bw = len(x)**(-1 / 5)
-    norm_factor = (2 * np.pi)**0.5 * len(x) * bw
-    return torch.sum(
-        torch.exp(
-            -0.5 * torch.square(
-                (x[:, None] - grid[None, :]) / bw
-            )
-        ),
-        axis=0
-    ) / norm_factor
 
 # Kriging prediction
 # Return: predicted value

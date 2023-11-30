@@ -21,7 +21,7 @@ else:
     
 
 #%% Read data
-data = pd.read_csv("non_stat_200.csv", index_col=None)
+data = pd.read_csv("non_stat_2000.csv", index_col=None)
 data = np.array(data.drop(data.columns[0], axis = 1))
 X = data[:, 0:3]
 Y = data[:, 3]
@@ -39,8 +39,6 @@ X_test = torch.from_numpy(X_test).float().to(device)
 
 for i in range(0, nnn):
     for j in range(0, iters):
-        print(i)
-        print(j)
         alpha = alphas[i]
         model = model_train_pinn(X_train, y_train, layers, lr, epochs, alpha, device)
         y_pred_tc = model(X_test)
