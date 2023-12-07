@@ -139,7 +139,7 @@ model4_mse = np.mean((y_test[:, 0] - y0_model4)**2)
 # %% Search over alpha
 k = 139
 layers = [k+1, 100, 100, 100, 100, 100, 100, 100, 1]
-lr = 0.001
+lr = 0.0005
 X_train_4 = np.hstack((X_train, phi_train))
 X_test_4 = np.hstack((X_test, phi_test))
 X_test_4_tc = torch.tensor(X_test_4).float().to(device)

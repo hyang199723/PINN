@@ -43,3 +43,57 @@ X = np.array([np.ones(N)]).T ##Design matrix
 # 1000 points evenly spaced over [0,1]
 s = np.linspace(0,1,N).reshape(-1,1)
 
+#%% RBF Layers with different weights
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
+class RBF(nn.Module):
+    def __init__(self, out_features, fixed_centers):
+        super(RBF, self).__init__()
+        self.out_features = out_features
+        self.register_buffer('centers', fixed_centers)
+
+    def forward(self, x):
+        size = (x.size(0), self.out_features, x.size(1))
+        x = x.unsqueeze(1).expand(size)
+        centers = self.centers.unsqueeze(0).expand(size)
+        distances = torch.norm(x - centers, dim=2)
+        
+        # Applying the specified formula
+        output = (1 - distances)**6 * (35 * distances**2 + 18 * distances + 3) / 3
+        return output
+
+# Example usage
+fixed_centers = torch.randn(139, 2)  # Initialize fixed centers
+rbf_layer = RBF(out_features=139, fixed_centers=fixed_centers)
+input = torch.randn(3, 2)  # Example input with 2 features (x, y)
+output = rbf_layer(input)
+
+# %% RBF Layers with same weight
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
+class RBF(nn.Module):
+    def __init__(self, out_features, fixed_centers):
+        super(RBF, self).__init__()
+        self.out_features = out_features
+        self.register_buffer('centers', fixed_centers)
+
+    def forward(self, x):
+        size = (x.size(0), self.out_features, x.size(1))
+        x = x.unsqueeze(1).expand(size)
+        centers = self.centers.unsqueeze(0).expand(size)
+        distances = torch.norm(x - centers, dim=2)
+        
+        # Applying the specified formula
+        output = (1 - distances)**6 * (35 * distances**2 + 18 * distances + 3) / 3
+        return output
+
+# Example usage
+fixed_centers = torch.randn(139, 2)  # Initialize fixed centers
+rbf_layer = RBF(out_features=139, fixed_centers=fixed_centers)
+input = torch.randn(3, 2)  # Example input with 2 features (x, y)
+output = rbf_layer(input)
+

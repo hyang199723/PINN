@@ -13,6 +13,8 @@ from IPython.display import clear_output
 import scipy
 from scipy.stats import gaussian_kde, norm
 from collections import OrderedDict
+import torch.nn as nn
+import torch.nn.functional as F
 if torch.cuda.is_available():
     device = torch.device('cuda:1')
 else:
@@ -74,25 +76,25 @@ def gen_multiTS(N, rho, vvv, ts):
 # N: number of data points
 # rho: spatial correlation
 # vvv: variance
-def gen_stat(N, rho, vvv):
+def gen_stat(N, rho, spatial_var, noise_var):
     n = N
     random.seed(123)
-    length = 20
+    length = 1
     coords1 = np.random.uniform(0, length, n)
     coords2 = np.random.uniform(0, length, n)
-    coords = np.concatenate((coords1, coords2), 1)
+    coords = np.vstack((coords1, coords2)).T
     X = np.zeros((n, 3))
     X[:, 0] = 1
-    X[:, 1] = coords
+    X[:, 1] = coords1
     X[:, 2] = coords2
 
     # Exponential Correlation
     distance = distance_matrix(coords.reshape(-1, 2), coords.reshape(-1, 2))
     corr = np.exp(-distance / rho)
     # Cholesky decomposition and generate correlated data
-    L = np.linalg.cholesky(vvv*corr)
+    L = np.linalg.cholesky(spatial_var*corr)
     z = np.random.normal(0, 1, n)
-    Y = np.dot(L, z)
+    Y = np.dot(L, z) + np.random.normal(0, noise_var, n)
     return X, Y
 
 # Feedford network without penalty
@@ -287,6 +289,134 @@ def model_train_pinn(X_train, y_train, layers, lr, epochs, alpha, momentum, devi
         total_values.append(total_loss.cpu().detach().numpy())
         kl_values.append(kl)
         live_plot(loss_values, kl_values, total_values)
+        optimizer.step()
+    return model
+
+class RBF(nn.Module):
+    def __init__(self, out_features, fixed_centers):
+        super(RBF, self).__init__()
+        self.out_features = out_features
+        self.register_buffer('centers', fixed_centers)
+        self.weights = nn.Parameter(torch.Tensor(out_features))
+        self.reset_parameters()
+
+    def reset_parameters(self):
+        nn.init.uniform_(self.weights, -1, 1)
+
+    def forward(self, x):
+        size = (x.size(0), self.out_features, x.size(1))
+        x = x.unsqueeze(1).expand(size)
+        centers = self.centers.unsqueeze(0).expand(size)
+        distances = torch.norm(x - centers, dim=2)
+        # Applying the specified formula
+        rbf_output = (1 - distances)**6 * (35 * distances**2 + 18 * distances + 3) / 3
+        # Multiply by weights
+        weighted_output = rbf_output * self.weights
+        return weighted_output
+
+
+class RBFNetwork(nn.Module):
+    def __init__(self, fixed_centers, out_dim):
+        super(RBFNetwork, self).__init__()
+        self.rbf_layer = RBF(out_features=out_dim, fixed_centers=fixed_centers)
+        self.fc_hidden_layer = nn.Linear(out_dim, 100)  # 100 is an example size for the hidden FC layer
+        self.hidden_layer_1 = nn.Linear(100, 100)
+        self.hidden_layer_2 = nn.Linear(100, 100)
+        self.hidden_layer_3 = nn.Linear(100, 100)
+        self.output_layer = nn.Linear(100, 1)  # Assuming a single output neuron for simplicity
+
+    def forward(self, x):
+        x = self.rbf_layer(x)
+        x = F.relu(self.fc_hidden_layer(x))
+        x = F.relu(self.hidden_layer_1(x))
+        x = F.relu(self.hidden_layer_2(x))
+        x = F.relu(self.hidden_layer_3(x))
+        x = self.output_layer(x)
+        return x
+    
+
+# RBF loss function
+def RBF_loss_func(X, y_true, model, optimizer, alpha, device):
+    optimizer.zero_grad()
+    x0 = X[:, 0].reshape(-1 ,1)
+    x1 = X[:, 1].reshape(-1 ,1)
+    XX = torch.cat((x0, x1), dim = 1).to(device)
+    y_pred = model(XX)
+    mse_loss = torch.mean((y_true - y_pred) ** 2) # MSE loss
+    # Calculate gradient
+    y_x = torch.autograd.grad(
+            y_pred,x0, 
+            grad_outputs=torch.ones_like(y_pred),
+            retain_graph=True,
+            create_graph=True
+        )[0]
+    y_xx = torch.autograd.grad(
+            y_x, x0, 
+            grad_outputs=torch.ones_like(y_x),
+            retain_graph=True,
+            create_graph=True
+        )[0]
+    y_z = torch.autograd.grad(
+            y_pred, x1, 
+            grad_outputs=torch.ones_like(y_pred),
+            retain_graph=True,
+            create_graph=True
+        )[0]
+    y_zz = torch.autograd.grad(
+            y_z, x1, 
+            grad_outputs=torch.ones_like(y_z),
+            retain_graph=True,
+            create_graph=True
+        )[0]
+    out = y_xx + y_zz
+    # Second order deravative should follow normal distribution
+    # kappa should be half of the range
+    W = 0.1/2 * y_pred - out
+    
+
+    W = W.cpu().detach().numpy()
+    W = W.reshape(-1)
+    # KDE 
+    kde = gaussian_kde(W)
+    x = np.linspace(min(W), max(W), 1000) # Define the range over which to evaluate the KDE and theoretical PDF
+    empirical_pdf = kde(x) # Evaluate the estimated empirical PDF
+    theoretical_pdf = norm.pdf(x, 0, 0.01) 
+    epsilon = 1e-10  # A small value to ensure numerical stability
+    empirical_pdf = np.maximum(empirical_pdf, epsilon)
+    empirical_tc = torch.tensor(empirical_pdf, requires_grad=True) # Convert to torch object
+    theoretical_pdf = np.maximum(theoretical_pdf, epsilon)
+    theoretical_tc = torch.tensor(theoretical_pdf, requires_grad=True)
+    kl_loss = nn.KLDivLoss(reduction="mean")
+    PINN = kl_loss(empirical_tc, theoretical_tc)
+
+    alpha = torch.tensor(alpha)
+    #PINN = torch.mean(W**2)
+    kl_divergence = PINN.cpu().detach().numpy()
+    loss = mse_loss + alpha * PINN
+    loss.backward()
+    return mse_loss, kl_divergence, loss
+
+
+# RBF Training
+def RBF_train(X_train, y_train, lr, epochs, alpha, device, centers, dims):
+    # Train-test split
+    y_train = y_train.reshape(-1, 1)
+    # Initialize model, loss, and optimizer
+    y_train_tc = torch.from_numpy(y_train).float().to(device)
+    X_train_tc = torch.tensor(X_train, requires_grad=True).float().to(device)
+    model = RBFNetwork(fixed_centers=centers, out_dim=dims).to(device)
+    # optimizer = torch.optim.SGD(model.parameters(), lr=2e-3)
+    optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+    model.train()
+    loss_values = []
+    kl_values = []
+    total_values = []
+    for epoch in range(epochs):
+        mse_loss, kl, total_loss = RBF_loss_func(X_train_tc, y_train_tc, model, optimizer, alpha, device)
+        loss_values.append(mse_loss.cpu().detach().numpy())
+        total_values.append(total_loss.cpu().detach().numpy())
+        kl_values.append(kl)
+        #live_plot(loss_values, kl_values, total_values)
         optimizer.step()
     return model
 
