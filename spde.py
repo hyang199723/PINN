@@ -1,4 +1,5 @@
-# Utility function to generate data, etc
+
+#%% Utility function to generate data, etc
 import torch
 import numpy as np
 import matplotlib.pyplot as plt
