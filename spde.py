@@ -12,6 +12,7 @@ import torch.optim as optim
 from IPython.display import clear_output
 import scipy
 from scipy.stats import gaussian_kde, norm
+from scipy.special import gamma, kn
 from collections import OrderedDict
 import torch.nn as nn
 import torch.nn.functional as F
@@ -96,6 +97,10 @@ def gen_stat(N, rho, spatial_var, noise_var):
     z = np.random.normal(0, 1, n)
     Y = np.dot(L, z) + np.random.normal(0, noise_var, n)
     return X, Y
+
+
+
+
 
 # Feedford network without penalty
 class FeedForwardNN(nn.Module):
@@ -249,7 +254,7 @@ def loss_func(X, y_true, model, optimizer, alpha, device):
     kde = gaussian_kde(W)
     x = np.linspace(min(W), max(W), 1000) # Define the range over which to evaluate the KDE and theoretical PDF
     empirical_pdf = kde(x) # Evaluate the estimated empirical PDF
-    theoretical_pdf = norm.pdf(x, 0, 0.01) 
+    theoretical_pdf = norm.pdf(x, 0, 1 + 0.1) 
     epsilon = 1e-10  # A small value to ensure numerical stability
     empirical_pdf = np.maximum(empirical_pdf, epsilon)
     empirical_tc = torch.tensor(empirical_pdf, requires_grad=True) # Convert to torch object
@@ -371,7 +376,7 @@ def RBF_loss_func(X, y_true, model, optimizer, alpha, device):
     out = y_xx + y_zz
     # Second order deravative should follow normal distribution
     # kappa should be half of the range
-    W = 0.1/2 * y_pred - out
+    W = ((8.0**0.5) / 0.1)**2 * y_pred - out
     
 
     W = W.cpu().detach().numpy()
@@ -380,7 +385,7 @@ def RBF_loss_func(X, y_true, model, optimizer, alpha, device):
     kde = gaussian_kde(W)
     x = np.linspace(min(W), max(W), 1000) # Define the range over which to evaluate the KDE and theoretical PDF
     empirical_pdf = kde(x) # Evaluate the estimated empirical PDF
-    theoretical_pdf = norm.pdf(x, 0, 0.01) 
+    theoretical_pdf = norm.pdf(x, 0, 1 + 0.1) 
     epsilon = 1e-10  # A small value to ensure numerical stability
     empirical_pdf = np.maximum(empirical_pdf, epsilon)
     empirical_tc = torch.tensor(empirical_pdf, requires_grad=True) # Convert to torch object
@@ -445,3 +450,43 @@ def Kriging(X_train, X_test, y_train, N, v, spatial_corr):
     L = np.linalg.cholesky(sigma_bar)
     y_hat = mu_bar + np.dot(L, zzz)
     return y_hat
+
+#%% Modified Bessel function of second kind and Matern correlation
+# kappa = \sqrt(8v) / rho
+# Distance: distances between observations
+def Matern_Cor(nu, rho, distance):
+    kappa = (8 * nu)**(0.5) / rho
+    const = 1 / (2**(nu - 1) * gamma(nu))
+    kd = kappa * distance
+    first_term = kd**nu
+    second_term = kn(nu, kd)
+    second_term[np.diag_indices_from(second_term)] = 0.
+    out = const * first_term * second_term
+    out[np.diag_indices_from(out)] = 1.0
+    return out
+
+
+# Generate from a matern correlation process
+# N: number of data points
+# rho: spatial correlation
+# vvv: variance
+def gen_matern(N, rho, spatial_var, noise_var, nu):
+    n = N
+    random.seed(123)
+    length = 1
+    coords1 = np.random.uniform(0, length, n)
+    coords2 = np.random.uniform(0, length, n)
+    coords = np.vstack((coords1, coords2)).T
+    X = np.zeros((n, 3))
+    X[:, 0] = 1
+    X[:, 1] = coords1
+    X[:, 2] = coords2
+
+    # Exponential Correlation
+    distance = distance_matrix(coords.reshape(-1, 2), coords.reshape(-1, 2))
+    corr = Matern_Cor(nu, rho, distance)
+    # Cholesky decomposition and generate correlated data
+    L = np.linalg.cholesky(spatial_var*corr)
+    z = np.random.normal(0, 1, n)
+    Y = np.dot(L, z) + np.random.normal(0, noise_var, n)
+    return X, Y

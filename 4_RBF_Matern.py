@@ -1,3 +1,4 @@
+
 #%% Packages
 import sys
 wk_dir = "/r/bb04na2a.unx.sas.com/vol/bigdisk/lax/hoyang/PINN/"
@@ -11,6 +12,7 @@ import random
 import torch.nn as nn
 import torch.optim as optim
 from spde import *
+from scipy.special import gamma, kn
 if torch.cuda.is_available():
     device = torch.device('cuda:1')
 else:
@@ -23,9 +25,11 @@ import pylab
 N = 1000
 P = 2
 noise_var = 0.1
-spatial_var = 1
-rho = 0.1
-X, Y = gen_stat(N, rho, spatial_var, noise_var)
+rho = 2
+nu = 1
+kappa = (8 * nu)**(0.5) / rho
+spatial_var = gamma(nu) / (gamma(nu + 1) * (4*math.pi) * kappa**(2*nu))
+X, Y = gen_matern(N, rho, spatial_var, noise_var, nu)
 X = X[:, 1:3] # Only need coors
 # RBF centers
 num_basis = [3,5,6,8]
@@ -67,7 +71,7 @@ model1_mse = np.mean((y_test - y0_model1)**2)
 plt.title(f'Predicted value; MSE = {model1_mse}')
 # %% Replicates
 alphas = [0, 0.5, 1, 2, 4, 8, 16, 100, 1000]
-iters = 30
+iters = 5
 MSE = pd.DataFrame(data = 0.0, index = range(iters), columns = alphas)
 for idx, alpha in enumerate(alphas):
     print(alpha)
@@ -84,3 +88,5 @@ for idx, alpha in enumerate(alphas):
         model1_mse = np.mean((y_test - y0_model1)**2)
         MSE.iloc[j, idx] = model1_mse
 
+
+# %%
