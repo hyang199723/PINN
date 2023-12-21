@@ -20,7 +20,6 @@ else:
 import scipy.stats as stats
 import pylab
 
-
 #%% Simulate a 2-D stationary data
 N = 1000
 P = 2

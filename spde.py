@@ -377,8 +377,7 @@ def RBF_loss_func(X, y_true, model, optimizer, alpha, device):
     out = y_xx + y_zz
     # Second order deravative should follow normal distribution
     # kappa should be half of the range
-    #W = ((8.0**0.5) / 0.1)**2 * y_pred - out
-    W = out
+    W = ((8.0**0.5) / 0.2)**2 * y_pred - out
 
     W = W.cpu().detach().numpy()
     W = W.reshape(-1)
