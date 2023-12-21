@@ -79,6 +79,20 @@ for i, nu in enumerate(nus):
     cors[i] = matern_correlation(nu, 0.1, 0.1)
 
 plt.plot(nus, cors)
+
+#%%
+N = 1000
+P = 2
+noise_var = 0.1
+rho = 0.2
+nu = 1
+kappa = (8 * nu)**(0.5) / rho
+spatial_var = 1
+X, Y = gen_matern(N, rho, spatial_var, noise_var, nu)
+X = X[:, 1:3] # Only need coors
+
+V_matern = skg.Variogram(X, Y)
+V_matern.plot()
     
 
 
@@ -202,11 +216,36 @@ w = kappa**2 * Y2 - delta
 w = w.reshape(-1)
 
 
-#%%
+#%% Log Normal process
+# Generate the log-normal process
+def gen_lognormal(N, rho, spatial_var, noise_var, nu):
+    n = N
+    random.seed(123)
+    length = 1
+    coords = np.random.uniform(0, length, (N, 2))
+    X = np.zeros((n, 3))
+    X[:, 0] = 1
+    X[:, 1:3] = coords
+
+    # Exponential Correlation
+    distance = distance_matrix(coords.reshape(-1, 2), coords.reshape(-1, 2))
+    corr = Matern_Cor(nu, rho, distance)
+    # Cholesky decomposition and generate correlated data
+    L = np.linalg.cholesky(spatial_var*corr)
+    z = np.random.normal(0, 1, n)
+    Y = np.exp(np.dot(L, z)) + np.random.normal(0, noise_var, n)
+    return X, Y
+N = 1000
+rho = 0.2
+noise_var = 0.1
+nu = 1
+spatial_var = 1
+X, Y = gen_lognormal(N, rho, spatial_var, noise_var, nu)
+plt.scatter(X[:, 1], X[:, 2], s = 20, c = Y)
+plt.title("Log-Normal Process")
 
 
-
-
+# A mixture of Gaussian field with different smoothness
 
 
 
