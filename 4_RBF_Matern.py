@@ -70,8 +70,8 @@ plt.scatter(X_test[:, 0], X_test[:, 1], s = 20, c = y0_model1)
 model1_mse = np.mean((y_test - y0_model1)**2)
 plt.title(f'Predicted value; MSE = {model1_mse}')
 # %% Replicates
-alphas = [0, 0.5, 1, 2, 4, 8, 16, 32, 64, 100, 256, 1000]
-iters = 100
+alphas = [0, 0.5, 1, 2, 4, 8, 16, 32, 64]#, 100, 256, 1000]
+iters = 10
 MSE = pd.DataFrame(data = 0.0, index = range(iters), columns = alphas)
 for idx, alpha in enumerate(alphas):
     print(alpha)
