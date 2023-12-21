@@ -245,13 +245,46 @@ plt.scatter(X[:, 1], X[:, 2], s = 20, c = Y)
 plt.title("Log-Normal Process")
 
 
-# A mixture of Gaussian field with different smoothness
+# %%A mixture of Gaussian field with different smoothness
+def gen_mixture(N, spatial_var, noise_var, nu1, nu2, rho1, rho2):
+    length = 1
+    coords = np.random.uniform(0, length, (N, 2))
+    X = np.zeros((N, 3))
+    X[:, 0] = 1
+    X[:, 1:3] = coords
+    # Compute distance matrix
+    distance = distance_matrix(coords.reshape(-1, 2), coords.reshape(-1, 2))
 
+    # Compute the Matern correlation matrices
+    cor1 = Matern_Cor(nu1, rho1, distance)
+    cor2 = Matern_Cor(nu2, rho2, distance)
 
+    # Simulate the spatial process
+    L1 = np.linalg.cholesky(spatial_var*cor1)
+    L2 = np.linalg.cholesky(spatial_var*cor2)
+    z1 = z2 = np.random.normal(0, 1, N)
+    y1 = np.dot(L1, z1) + np.random.normal(0, noise_var, N)
+    y2 = np.dot(L2, z2) + np.random.normal(0, noise_var, N)
 
+    # Combine the two fields
+    w = coords[:, 0] * 0.5
+    y = y1 * w + y2 * (1 - w)
+    return X, y
 
+n = 1000
+spatial_var = 1
+noise_var = 0.1
+nu1 = 2.5
+rho1 = 0.3
+nu2 = 0.5
+rho2 = 0.1
 
+X, Y = gen_mixture(n, spatial_var, noise_var, nu1, nu2, rho1, rho2)
+plt.scatter(X[:, 1], X[:, 2], s = 20, c = Y)
 
+s = X[:, 1:3]
+V_matern = skg.Variogram(s, Y)
+V_matern.plot()
 
 
 
