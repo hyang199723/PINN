@@ -13,7 +13,7 @@ import torch.optim as optim
 from IPython.display import clear_output
 import scipy
 from scipy.stats import gaussian_kde, norm
-from scipy.special import gamma, kn
+from scipy.special import gamma, kv
 from collections import OrderedDict
 import torch.nn as nn
 import torch.nn.functional as F
@@ -460,7 +460,7 @@ def Matern_Cor(nu, rho, distance):
     const = 1 / (2**(nu - 1) * gamma(nu))
     kd = kappa * distance
     first_term = kd**nu
-    second_term = kn(nu, kd)
+    second_term = kv(nu, kd)
     second_term[np.diag_indices_from(second_term)] = 0.
     out = const * first_term * second_term
     out[np.diag_indices_from(out)] = 1.0
@@ -475,13 +475,10 @@ def gen_matern(N, rho, spatial_var, noise_var, nu):
     n = N
     random.seed(123)
     length = 1
-    coords1 = np.random.uniform(0, length, n)
-    coords2 = np.random.uniform(0, length, n)
-    coords = np.vstack((coords1, coords2)).T
+    coords = np.random.uniform(0, length, (N, 2))
     X = np.zeros((n, 3))
     X[:, 0] = 1
-    X[:, 1] = coords1
-    X[:, 2] = coords2
+    X[:, 1:3] = coords
 
     # Exponential Correlation
     distance = distance_matrix(coords.reshape(-1, 2), coords.reshape(-1, 2))
