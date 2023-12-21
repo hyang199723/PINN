@@ -377,7 +377,7 @@ def RBF_loss_func(X, y_true, model, optimizer, alpha, device):
     out = y_xx + y_zz
     # Second order deravative should follow normal distribution
     # kappa should be half of the range
-    W = ((8.0**0.5) / 0.2)**2 * y_pred - out
+    W = ((8.0**0.5) / 0.3)**2 * y_pred - out
 
     W = W.cpu().detach().numpy()
     W = W.reshape(-1)
@@ -385,7 +385,7 @@ def RBF_loss_func(X, y_true, model, optimizer, alpha, device):
     kde = gaussian_kde(W)
     x = np.linspace(min(W), max(W), 1000) # Define the range over which to evaluate the KDE and theoretical PDF
     empirical_pdf = kde(x) # Evaluate the estimated empirical PDF
-    theoretical_pdf = norm.pdf(x, 0, 1 + 0.1) 
+    theoretical_pdf = norm.pdf(x, 0, 1) 
     epsilon = 1e-10  # A small value to ensure numerical stability
     empirical_pdf = np.maximum(empirical_pdf, epsilon)
     empirical_tc = torch.tensor(empirical_pdf, requires_grad=True) # Convert to torch object
