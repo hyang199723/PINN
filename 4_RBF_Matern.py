@@ -25,7 +25,7 @@ import pylab
 N = 1000
 P = 2
 noise_var = 0.1
-rho = 2
+rho = 0.2
 nu = 1
 kappa = (8 * nu)**(0.5) / rho
 spatial_var = 1
@@ -71,7 +71,7 @@ model1_mse = np.mean((y_test - y0_model1)**2)
 plt.title(f'Predicted value; MSE = {model1_mse}')
 # %% Replicates
 alphas = [0, 0.5, 1, 2, 4, 8, 16, 32, 64]#, 100, 256, 1000]
-iters = 10
+iters = 5
 MSE = pd.DataFrame(data = 0.0, index = range(iters), columns = alphas)
 for idx, alpha in enumerate(alphas):
     print(alpha)
