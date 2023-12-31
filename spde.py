@@ -377,7 +377,7 @@ def RBF_loss_func(X, y_true, model, optimizer, alpha, device):
     out = y_xx + y_zz
     # Second order deravative should follow normal distribution
     # kappa should be half of the range
-    W = ((8.0**0.5) / 0.3)**2 * y_pred - out
+    W = ((8.0**0.5) / 0.2)**2 * y_pred - out
 
     W = W.cpu().detach().numpy()
     W = W.reshape(-1)
@@ -424,6 +424,8 @@ def RBF_train(X_train, y_train, lr, epochs, alpha, device, centers, dims):
         #live_plot(loss_values, kl_values, total_values)
         optimizer.step()
     return model
+
+
 
 # Kriging prediction
 # Return: predicted value
@@ -533,3 +535,70 @@ def gen_mixture(N, spatial_var, noise_var, nu1, nu2, rho1, rho2):
     w = coords[:, 0] * 0.5
     y = y1 * w + y2 * (1 - w)
     return X, y
+
+
+
+#%% RBF with random centers
+class RBF_random(nn.Module):
+    def __init__(self, in_features, out_features):
+        super(RBF_random, self).__init__()
+        self.in_features = in_features
+        self.out_features = out_features
+        self.centers = nn.Parameter(torch.Tensor(out_features, in_features))
+        self.weights = nn.Parameter(torch.Tensor(out_features))
+        self.reset_parameters()
+
+    def reset_parameters(self):
+        nn.init.uniform_(self.centers, -1, 1)
+        nn.init.uniform_(self.weights, -1, 1)
+
+    def forward(self, x):
+        size = (x.size(0), self.out_features, self.in_features)
+        x = x.unsqueeze(1).expand(size)
+        centers = self.centers.unsqueeze(0).expand(size)
+        distances = torch.norm(x - centers, dim=2)
+        rbf_output = (1 - distances)**6 * (35 * distances**2 + 18 * distances + 3) / 3
+        weighted_output = rbf_output * self.weights
+        return weighted_output
+    
+class RBFNetworkRandom(nn.Module):
+    def __init__(self, in_dims, out_dims):
+        super(RBFNetworkRandom, self).__init__()
+        self.rbf_layer = RBF_random(in_features = in_dims, out_features=out_dims)
+        self.fc_hidden_layer = nn.Linear(out_dims, 100)  # 100 is an example size for the hidden FC layer
+        self.hidden_layer_1 = nn.Linear(100, 100)
+        self.hidden_layer_2 = nn.Linear(100, 100)
+        self.hidden_layer_3 = nn.Linear(100, 100)
+        self.output_layer = nn.Linear(100, 1)  # Assuming a single output neuron for simplicity
+
+    def forward(self, x):
+        x = self.rbf_layer(x)
+        x = F.relu(self.fc_hidden_layer(x))
+        x = F.relu(self.hidden_layer_1(x))
+        x = F.relu(self.hidden_layer_2(x))
+        x = F.relu(self.hidden_layer_3(x))
+        x = self.output_layer(x)
+        return x
+
+# RBF Training
+def RBFRandmTrain(X_train, y_train, lr, epochs, alpha, device, in_dims, out_dims):
+    # Train-test split
+    y_train = y_train.reshape(-1, 1)
+    # Initialize model, loss, and optimizer
+    y_train_tc = torch.from_numpy(y_train).float().to(device)
+    X_train_tc = torch.tensor(X_train, requires_grad=True).float().to(device)
+    model = RBFNetworkRandom(in_dims = in_dims, out_dims=out_dims).to(device)
+    # optimizer = torch.optim.SGD(model.parameters(), lr=2e-3)
+    optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+    model.train()
+    loss_values = []
+    kl_values = []
+    total_values = []
+    for epoch in range(epochs):
+        mse_loss, kl, total_loss = RBF_loss_func(X_train_tc, y_train_tc, model, optimizer, alpha, device)
+        loss_values.append(mse_loss.cpu().detach().numpy())
+        total_values.append(total_loss.cpu().detach().numpy())
+        kl_values.append(kl)
+        #live_plot(loss_values, kl_values, total_values)
+        optimizer.step()
+    return model

@@ -20,7 +20,7 @@ else:
 import scipy.stats as stats
 import pylab
 
-#%% Simulate a 2-D stationary data
+#%% Simulate a 2-D Matern
 N = 1000
 P = 2
 noise_var = 0.1
@@ -28,10 +28,9 @@ rho = 0.2
 nu = 1
 kappa = (8 * nu)**(0.5) / rho
 spatial_var = 1
-X, Y = gen_mixture(N, spatial_var, noise_var, nu1 = 3.5, nu2 = 0.5,
-                   rho1 = 0.3, rho2 = 0.1)
+X, Y = gen_matern(N, rho, spatial_var, noise_var, nu)
 X = X[:, 1:3] # Only need coors
-# RBF centers
+
 num_basis = [3,5,6,8]
 squared = [i**2 for i in num_basis]
 out_dim = np.sum(squared)
@@ -53,40 +52,32 @@ plt.subplot(1,2,2)
 plt.scatter(X_test[:,0], X_test[:,1], s = 20, c = y_test)
 plt.title("Testing data")
 
-
-# %%
-lr = 0.0005 # default learning rate in keras adam
-model_1 = RBF_train(X_train, y_train, lr=lr, epochs=1500, alpha = 10,
-                          device = device, centers=fixed_centers, dims = out_dim)
-#%%
-# Get RMSE
-X_test_tc = torch.tensor(X_test).float().to(device)
-y0_model1 = model_1(X_test_tc).cpu().detach().numpy().reshape(-1)
-plt.subplot(1,2,1)
-plt.scatter(X_test[:, 0], X_test[:, 1], s = 20, c = y_test)
-plt.title("Testing data")
-plt.subplot(1,2,2)
-plt.scatter(X_test[:, 0], X_test[:, 1], s = 20, c = y0_model1)
-model1_mse = np.mean((y_test - y0_model1)**2)
-plt.title(f'Predicted value; MSE = {model1_mse}')
 # %% Replicates
-alphas = [0, 0.5, 1, 2, 4, 8, 16, 32, 64, 100, 256, 512, 1000]
-iters = 100
+alphas = [0, 0.5, 1, 2, 4, 8, 16, 32, 64, 100, 256, 1000]
+iters = 5
 MSE = pd.DataFrame(data = 0.0, index = range(iters), columns = alphas)
+in_dims = 2
+out_dims = 150
 for idx, alpha in enumerate(alphas):
     print(alpha)
-    X, Y = gen_mixture(N, spatial_var, noise_var, nu1 = 3.5, nu2 = 0.5,
-                   rho1 = 0.3, rho2 = 0.1)
+    X, Y = gen_stat(N, rho, spatial_var, noise_var)
     X = X[:, 1:3]
     X_train, X_test, y_train, y_test = random_split(X, Y)
     lr = 0.0005 # default learning rate in keras adam
     for j in range(iters):
-        model_1 = RBF_train(X_train, y_train, lr=lr, epochs=1500, alpha = alpha,
+        print(j)
+        model_1 = RBFRandmTrain(X_train, y_train, lr=lr, epochs=1500, alpha = alpha,
+                          device = device, in_dims = in_dims, out_dims = out_dims)
+        if alpha == 0:
+            model2 = RBF_train(X_train, y_train, lr=lr, epochs=1500, alpha = alpha,
                           device = device, centers=fixed_centers, dims = out_dim)
+            X2_test_tc = torch.tensor(X_test).float().to(device)
+            y0_model2 = model2(X2_test_tc).cpu().detach().numpy().reshape(-1)
+            model2_mse = np.mean((y_test - y0_model2)**2)
+            print(model2_mse)
         X_test_tc = torch.tensor(X_test).float().to(device)
         y0_model1 = model_1(X_test_tc).cpu().detach().numpy().reshape(-1)
         model1_mse = np.mean((y_test - y0_model1)**2)
         MSE.iloc[j, idx] = model1_mse
-MSE.to_csv(wk_dir + "Mixture_MSE.csv")
 
 # %%
