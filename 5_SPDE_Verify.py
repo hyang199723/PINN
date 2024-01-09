@@ -178,7 +178,7 @@ w = w.reshape(-1)
 delta_flat = Y2_yy.reshape(-1)
 
 plt.hist(delta_flat, bins=30, color='skyblue', edgecolor='black')
-plt.hist(w, bins=30, color='skyblue', edgecolor='black')
+#plt.hist(w, bins=30, color='skyblue', edgecolor='black')
 
 delta_mean = np.mean(delta_flat)
 delta_var = np.var(delta_flat)
