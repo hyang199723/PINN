@@ -69,7 +69,7 @@ plt.scatter(X_test[:, 0], X_test[:, 1], s = 20, c = y0_model1)
 model1_mse = np.mean((y_test - y0_model1)**2)
 plt.title(f'Predicted value; MSE = {model1_mse}')
 # %% Replicates
-alphas = [0, 0.5, 1, 2, 4, 8, 16, 32, 64, 100, 256, 512, 1000]
+alphas = [70, 80, 90, 100, 120, 140, 160, 180]
 iters = 100
 MSE = pd.DataFrame(data = 0.0, index = range(iters), columns = alphas)
 for idx, alpha in enumerate(alphas):
@@ -85,6 +85,6 @@ for idx, alpha in enumerate(alphas):
         y0_model1 = model_1(X_test_tc).cpu().detach().numpy().reshape(-1)
         model1_mse = np.mean((y_test - y0_model1)**2)
         MSE.iloc[j, idx] = model1_mse
-
+MSE.to_csv(wk_dir + "Matern_70_180.csv")
 
 # %%

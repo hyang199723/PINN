@@ -41,21 +41,11 @@ for i in num_basis:
     x = np.array([(x, y) for x in loc for y in loc])
     fixed_centers[sum:sum+i**2] = torch.tensor(x)
     sum += i**2
-
-#%% PLots
-X_train, X_test, y_train, y_test = random_split(X, Y)
-# Visualize train and test
-plt.subplot(1,2,1)
-plt.scatter(X_train[:,0], X_train[:,1], s = 20, c = y_train)
-plt.title("Training data")
-plt.subplot(1,2,2)
-plt.scatter(X_test[:,0], X_test[:,1], s = 20, c = y_test)
-plt.title("Testing data")
-
 # %% Replicates
 alphas = [0, 0.5, 1, 2, 4, 8, 16, 32, 64, 100, 256, 1000]
-iters = 5
+iters = 100
 MSE = pd.DataFrame(data = 0.0, index = range(iters), columns = alphas)
+MSE_fixed = [0.0] * iters
 in_dims = 2
 out_dims = 150
 for idx, alpha in enumerate(alphas):
@@ -65,7 +55,6 @@ for idx, alpha in enumerate(alphas):
     X_train, X_test, y_train, y_test = random_split(X, Y)
     lr = 0.0005 # default learning rate in keras adam
     for j in range(iters):
-        print(j)
         model_1 = RBFRandmTrain(X_train, y_train, lr=lr, epochs=1500, alpha = alpha,
                           device = device, in_dims = in_dims, out_dims = out_dims)
         if alpha == 0:
@@ -74,10 +63,12 @@ for idx, alpha in enumerate(alphas):
             X2_test_tc = torch.tensor(X_test).float().to(device)
             y0_model2 = model2(X2_test_tc).cpu().detach().numpy().reshape(-1)
             model2_mse = np.mean((y_test - y0_model2)**2)
-            print(model2_mse)
+            MSE_fixed[j] = model2_mse
         X_test_tc = torch.tensor(X_test).float().to(device)
         y0_model1 = model_1(X_test_tc).cpu().detach().numpy().reshape(-1)
         model1_mse = np.mean((y_test - y0_model1)**2)
         MSE.iloc[j, idx] = model1_mse
-
+MSE.to_csv(wk_dir + "random_center_MSE.csv")
+MSE_fixed = pd.DataFrame(MSE_fixed)
+MSE_fixed.to_csv(wk_dir + "random_center__compare_MSE.csv")
 # %%
