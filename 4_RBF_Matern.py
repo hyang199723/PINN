@@ -55,7 +55,7 @@ plt.title("Testing data")
 
 # %%
 lr = 0.0005 # default learning rate in keras adam
-model_1 = RBF_train(X_train, y_train, lr=lr, epochs=1500, alpha = 10,
+model_1 = RBF_train(X_train, y_train, lr=lr, epochs=1500, alpha = 0,
                           device = device, centers=fixed_centers, dims = out_dim)
 #%%
 # Get RMSE
@@ -67,7 +67,7 @@ plt.title("Testing data")
 plt.subplot(1,2,2)
 plt.scatter(X_test[:, 0], X_test[:, 1], s = 20, c = y0_model1)
 model1_mse = np.mean((y_test - y0_model1)**2)
-plt.title(f'Predicted value; MSE = {model1_mse}')
+plt.title(f'Predicted value alpha = 0')
 # %% Replicates
 alphas = [70, 80, 90, 100, 120, 140, 160, 180]
 iters = 100

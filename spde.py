@@ -392,12 +392,13 @@ def RBF_loss_func(X, y_true, model, optimizer, alpha, device):
     theoretical_pdf = np.maximum(theoretical_pdf, epsilon)
     theoretical_tc = torch.tensor(theoretical_pdf, requires_grad=True)
     kl_loss = nn.KLDivLoss(reduction="mean")
-    PINN = kl_loss(empirical_tc, theoretical_tc)
+    PINN = torch.abs(kl_loss(empirical_tc, theoretical_tc))
 
     alpha = torch.tensor(alpha)
     #PINN = torch.mean(W**2)
     kl_divergence = PINN.cpu().detach().numpy()
     loss = mse_loss + alpha * PINN
+    #print(f'KL value: {kl_divergence}')
     loss.backward()
     return mse_loss, kl_divergence, loss
 
@@ -429,10 +430,12 @@ def RBF_train(X_train, y_train, lr, epochs, alpha, device, centers, dims):
 
 # Kriging prediction
 # Return: predicted value
-def Kriging(X_train, X_test, y_train, N, v, spatial_corr):
+# Assumes that X_train and X_test only has coordinates
+def Kriging(X_train, X_test, y_train, spatial_corr):
+    N = X_train.shape[0] + X_test.shape[0]
     n2 = X_test.shape[0] # Test size
-    s_train = X_train[:, 1:3]
-    s_test = X_test[:, 1:3]
+    s_train = X_train
+    s_test = X_test
     coords = np.concatenate((s_test, s_train))
     distance = distance_matrix(coords.reshape(-1, 2), coords.reshape(-1, 2))
     v_bar = np.var(y_train)
@@ -602,3 +605,4 @@ def RBFRandmTrain(X_train, y_train, lr, epochs, alpha, device, in_dims, out_dims
         #live_plot(loss_values, kl_values, total_values)
         optimizer.step()
     return model
+

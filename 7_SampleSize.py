@@ -45,12 +45,14 @@ for i in num_basis:
 #%% Split
 X_train, X_test, y_train, y_test = random_split(X, Y)
 # %% Replicates
-Ns = [200 * 2**i for i in range(0, 7)]
+#Ns = [200 * 2**i for i in range(0, 5)]
+Ns = [100, 200, 400, 600, 800, 1000, 1500, 1800, 2100, 2500]
 iters = 100
+#%%
 MSE_0 = pd.DataFrame(data = 0.0, index = range(iters), columns = Ns)
 for idx, n in enumerate(Ns):
     print(n)
-    X, Y = gen_stat(n, rho, spatial_var, noise_var)
+    X, Y = gen_matern(N, rho, spatial_var, noise_var, nu)
     X = X[:, 1:3]
     X_train, X_test, y_train, y_test = random_split(X, Y)
     lr = 0.0005 # default learning rate in keras adam
@@ -66,7 +68,7 @@ MSE_0.to_csv(wk_dir + "Sample_alpha0.csv")
 MSE_1 = pd.DataFrame(data = 0.0, index = range(iters), columns = Ns)
 for idx, n in enumerate(Ns):
     print(n)
-    X, Y = gen_stat(n, rho, spatial_var, noise_var)
+    X, Y = gen_matern(N, rho, spatial_var, noise_var, nu)
     X = X[:, 1:3]
     X_train, X_test, y_train, y_test = random_split(X, Y)
     lr = 0.0005 # default learning rate in keras adam
@@ -83,7 +85,7 @@ MSE_1.to_csv(wk_dir + "Sample_alpha1.csv")
 MSE_100 = pd.DataFrame(data = 0.0, index = range(iters), columns = Ns)
 for idx, n in enumerate(Ns):
     print(n)
-    X, Y = gen_stat(n, rho, spatial_var, noise_var)
+    X, Y = gen_matern(N, rho, spatial_var, noise_var, nu)
     X = X[:, 1:3]
     X_train, X_test, y_train, y_test = random_split(X, Y)
     lr = 0.0005 # default learning rate in keras adam
@@ -95,11 +97,11 @@ for idx, n in enumerate(Ns):
         model1_mse = np.mean((y_test - y0_model1)**2)
         MSE_100.iloc[j, idx] = model1_mse
 MSE_100.to_csv(wk_dir + "Sample_alpha100.csv")
-
+#%%
 MSE_1000 = pd.DataFrame(data = 0.0, index = range(iters), columns = Ns)
 for idx, n in enumerate(Ns):
     print(n)
-    X, Y = gen_stat(n, rho, spatial_var, noise_var)
+    X, Y = gen_matern(N, rho, spatial_var, noise_var, nu)
     X = X[:, 1:3]
     X_train, X_test, y_train, y_test = random_split(X, Y)
     lr = 0.0005 # default learning rate in keras adam
