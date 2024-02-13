@@ -24,9 +24,12 @@ import pylab
 # The data still follows a matern process
 def gen_uneven(N, rho, spatial_var, noise_var, nu):
     random.seed(123)
-    coords1 = np.random.beta(1, 3, size = (math.floor(N/2), 2))
-    coords2 = np.random.beta(3, 1, size = (math.ceil(N/2), 2))
-    coords = np.concatenate((coords1, coords2))
+    skew = 5
+    coords1 = np.random.beta(1, skew, size = (math.floor(N/4), 2))
+    coords2 = np.random.beta(skew, 1, size = (math.ceil(N/4), 2))
+    coords3 = np.stack((np.random.beta(1, skew, size = math.ceil(N/4)), np.random.beta(skew, 1, size = math.ceil(N/4))), axis = 1)
+    coords4 = np.stack((np.random.beta(skew, 1, size = math.ceil(N/4)), np.random.beta(1, skew, size = math.ceil(N/4))), axis = 1)
+    coords = np.concatenate((coords1, coords2, coords3, coords4))
     X = np.zeros((N, 3))
     X[:, 0] = 1
     X[:, 1:3] = coords
@@ -96,7 +99,9 @@ for idx, alpha in enumerate(alphas):
         y0_model1 = model_1(X_test_tc).cpu().detach().numpy().reshape(-1)
         model1_mse = np.mean((y_test - y0_model1)**2)
         MSE.iloc[j, idx] = model1_mse
-MSE.to_csv(wk_dir + "random_center_uneven_MSE.csv")
+MSE.to_csv(wk_dir + "Output/random_center_uneven_MSE.csv")
 MSE_fixed = pd.DataFrame(MSE_fixed)
-MSE_fixed.to_csv(wk_dir + "random_center_uneven_compare_MSE.csv")
+MSE_fixed.to_csv(wk_dir + "Output/random_center_uneven_compare_MSE.csv")
+MSE_kriging = pd.DataFrame(MSE_kriging)
+MSE_kriging.to_csv(wk_dir + "Output/random_center_uneven_kriging_MSE.csv")
 # %%

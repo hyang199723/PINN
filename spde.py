@@ -151,7 +151,9 @@ def random_split(X, Y):
 
 # Out of support splitting
 def out_support_split(X, Y):
-    train_row = X[:, 1] > 17.5
+    x_row = np.logical_and(X[:, 0] < 0.9, X[:, 0] > 0.1)
+    y_row = np.logical_and(X[:, 1] < 0.9, X[:, 1] > 0.1)
+    train_row = np.logical_and(x_row, y_row)
     test_row = np.invert(train_row)
     X_train = X[train_row, :]
     X_test  = X[test_row, :]
