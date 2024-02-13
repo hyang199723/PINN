@@ -22,6 +22,25 @@ if torch.cuda.is_available():
 else:
     device = torch.device('cpu')
 
+torch.pi = (torch.acos(torch.zeros(1)).item() * torch.tensor(2)).to(device)
+# Gaussian kernel function
+def gaussian_kernel(x, xi, bandwidth):
+    bandwidth = torch.tensor(bandwidth).to(device)
+    #print(bandwidth)
+    return (1 / (torch.sqrt(2 * torch.pi).to(device) * bandwidth)) * torch.exp(-((x - xi) ** 2) / (2 * bandwidth ** 2))
+
+# Kernel Density Estimation function
+def kde(data, x_grid):
+    bandwidth = 1.06 * torch.std(data) * (data.size()[0] ** (-1/5))
+    bandwidth = torch.tensor(bandwidth).to(device)
+    n = len(data)
+    estimated_density = torch.zeros_like(x_grid).to(device)
+    for xi in data:
+        xi = torch.tensor(xi).to(device)
+        estimated_density += gaussian_kernel(x_grid, xi, bandwidth)
+    return estimated_density / n
+
+
 #%% Functions
 # Simulate a random 2-D non-stationary data, same covariance across map
 # N: number of data points
@@ -149,6 +168,28 @@ def random_split(X, Y):
     y_test = Y[test_row]
     return X_train, X_test, y_train, y_test
 
+# Randomly split data and include validation set
+# Train:Val:Test = 6:2:2
+def random_split_val(X, Y):
+    n = X.shape[0]
+    rows = [i for i in range(0, n)]
+    train_size = math.floor(n * 0.6)
+    train_row = random.sample(range(n), train_size)
+    train_row.sort()
+    val_test_row = list(set(rows) - set(train_row))
+    n_remain = len(val_test_row)
+    val_size = math.floor(n_remain * 0.5)
+    val_row = random.sample(val_test_row, val_size)
+    val_row.sort()
+    test_row = list(set(val_test_row) - set(val_row))
+    X_train = X[train_row, :]
+    y_train = Y[train_row]
+    X_val = X[val_row, :]
+    y_val = Y[val_row]
+    X_test = X[test_row, :]
+    y_test = Y[test_row]
+    return X_train, X_val, X_test, y_train, y_val, y_test
+
 # Out of support splitting
 def out_support_split(X, Y):
     x_row = np.logical_and(X[:, 0] < 0.9, X[:, 0] > 0.1)
@@ -191,11 +232,12 @@ def model_train_dnn(X_train, y_train, layers, lr, epochs, device):
     return model
 
 # Function to update the loss plot
-def live_plot(loss, kl, total_loss):
+def live_plot(loss, kl, total_loss, val_loss):
     clear_output(wait=True)
     plt.subplot(1,3,1)
-    plt.plot(loss)
-    plt.title('Training Loss')
+    plt.plot(loss, label = "Training loss")
+    plt.plot(val_loss, label = "Validation loss")
+    plt.title('MSE Loss')
     plt.xlabel('Batch number')
     plt.ylabel('Loss')
     plt.subplot(1,3,2)
@@ -380,35 +422,34 @@ def RBF_loss_func(X, y_true, model, optimizer, alpha, device):
     # Second order deravative should follow normal distribution
     # kappa should be half of the range
     W = ((8.0**0.5) / 0.2)**2 * y_pred - out
-
-    W = W.cpu().detach().numpy()
-    W = W.reshape(-1)
-    # KDE 
-    kde = gaussian_kde(W)
-    x = np.linspace(min(W), max(W), 1000) # Define the range over which to evaluate the KDE and theoretical PDF
-    empirical_pdf = kde(x) # Evaluate the estimated empirical PDF
-    theoretical_pdf = norm.pdf(x, 0, 1) 
+    x_grid = torch.linspace(-5, 5, 1000).to(device)
+    W_density = kde(W, x_grid)
+    # KDE
+    #empirical_pdf = kde(x) # Evaluate the estimated empirical PDF
+    #empirical_pdf = np.maximum(empirical_pdf, epsilon)
+    #empirical_tc = torch.tensor(empirical_pdf, requires_grad=True) # Convert to torch object
+    x = np.linspace(-5, 5, 1000) # Define the range over which to evaluate the KDE and theoretical PDF
+    theoretical_pdf = norm.pdf(x, 0, 1)
     epsilon = 1e-10  # A small value to ensure numerical stability
-    empirical_pdf = np.maximum(empirical_pdf, epsilon)
-    empirical_tc = torch.tensor(empirical_pdf, requires_grad=True) # Convert to torch object
     theoretical_pdf = np.maximum(theoretical_pdf, epsilon)
-    theoretical_tc = torch.tensor(theoretical_pdf, requires_grad=True)
+    theoretical_tc = torch.tensor(theoretical_pdf).to(device)
     kl_loss = nn.KLDivLoss(reduction="mean")
-    PINN = torch.abs(kl_loss(empirical_tc, theoretical_tc))
+    PINN = torch.square(kl_loss(W_density, theoretical_tc))
 
     alpha = torch.tensor(alpha)
     #PINN = torch.mean(W**2)
-    kl_divergence = PINN.cpu().detach().numpy()
     loss = mse_loss + alpha * PINN
-    #print(f'KL value: {kl_divergence}')
+    kl_divergence = PINN.cpu().detach().numpy()
+    #print(kl_divergence)
     loss.backward()
     return mse_loss, kl_divergence, loss
 
 
 # RBF Training
-def RBF_train(X_train, y_train, lr, epochs, alpha, device, centers, dims):
+def RBF_train(X_train, X_val, y_train, y_val, lr, epochs, alpha, device, centers, dims):
     # Train-test split
     y_train = y_train.reshape(-1, 1)
+    X_val_tc = torch.tensor(X_val).float().to(device)
     # Initialize model, loss, and optimizer
     y_train_tc = torch.from_numpy(y_train).float().to(device)
     X_train_tc = torch.tensor(X_train, requires_grad=True).float().to(device)
@@ -417,6 +458,7 @@ def RBF_train(X_train, y_train, lr, epochs, alpha, device, centers, dims):
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
     model.train()
     loss_values = []
+    val_loss = []
     kl_values = []
     total_values = []
     for epoch in range(epochs):
@@ -424,8 +466,11 @@ def RBF_train(X_train, y_train, lr, epochs, alpha, device, centers, dims):
         loss_values.append(mse_loss.cpu().detach().numpy())
         total_values.append(total_loss.cpu().detach().numpy())
         kl_values.append(kl)
-        #live_plot(loss_values, kl_values, total_values)
         optimizer.step()
+        y_val_hat = model(X_val_tc).cpu().detach().numpy().reshape(-1)
+        val_mse = np.mean((y_val - y_val_hat)**2)
+        val_loss.append(val_mse)
+        #live_plot(loss_values, kl_values, total_values, val_loss)
     return model
 
 

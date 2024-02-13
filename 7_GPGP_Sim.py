@@ -21,7 +21,7 @@ import scipy.stats as stats
 import pylab
 
 #%% Simulate a 2-D stationary data
-full = pd.read_csv(wk_dir + "gpgp_matern.csv")
+full = pd.read_csv(wk_dir + "Data/GPGP/gpgp_matern.csv")
 X = np.array(full.iloc[:, 1:3])
 Y = np.array(full.iloc[:, 3])
 # RBF centers
