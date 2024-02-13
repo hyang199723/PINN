@@ -30,7 +30,7 @@ Matern <- function(distance, nu, rho) {
   return(corr)
 }
 
-iters = 50
+iters = 1
 MSE = rep(0, iters)
 for (i in 1:iters) {
   # Matern simulation
@@ -69,8 +69,16 @@ for (i in 1:iters) {
   test_loc = as.matrix(test[, 1:2])
   
   # INLA 
-  mesh <- inla.mesh.2d(loc = train_loc, max.edge = s * 1.1)  # Define the mesh
-  spde_model <- inla.spde2.matern(mesh = mesh, alpha = 2)
+  #mesh <- inla.mesh.2d(loc = train_loc, max.edge = s * 1.1)  # Define the mesh
+  mesh <- inla.mesh.2d(loc = train_loc, max.edge = c(0.035, 0.1))  # Define the mesh
+  #spde_model <- inla.spde2.matern(mesh = mesh, alpha = 2)
+  spde_model <- inla.spde2.pcmatern(
+    # Mesh and smoothness parameter
+    mesh = mesh, alpha = 2,
+    # P(practic.range < 0.3) = 0.5
+    prior.range = c(0.1, 0.3),
+    # P(sigma > 1) = 0.01
+    prior.sigma = c(10, 0.01)) 
   s.index <- inla.spde.make.index(name = "spatial.field", 
                                   n.spde = spde_model$n.spde) # index corresponding to data sites
   A_train <- inla.spde.make.A(mesh = mesh, loc = train_loc) # create projection matrix
@@ -83,6 +91,9 @@ for (i in 1:iters) {
                             tag = "train.data")
   
   plot(mesh)
+  points(x = train_loc[,1], y = train_loc[,2], type = 'p')
+  #plot(mesh)
+  #points(x = test_loc[,1], y = test_loc[,2], type = 'p')
   #formula <- y ~ 1 + f(train[, 0:2], model = spde_model, mesh = mesh)  # Replace 'y' and 'location' with your variables
   formula <- y ~ -1 + Intercept + Lon + Lat + f(spatial.field, model = spde_model)
   
@@ -106,7 +117,6 @@ for (i in 1:iters) {
   
   MSE[i] = mean((test$y - yhat)^2)
 }
-# nnGP (-)
 # GP-GP
 # Basic Kriging Result
 

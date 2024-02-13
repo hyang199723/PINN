@@ -74,7 +74,7 @@ iters = 100
 MSE = pd.DataFrame(data = 0.0, index = range(iters), columns = alphas)
 for idx, alpha in enumerate(alphas):
     print(alpha)
-    X, Y = gen_stat(N, rho, spatial_var, noise_var)
+    X, Y = gen_matern(N, rho, spatial_var, noise_var, nu)
     X = X[:, 1:3]
     X_train, X_test, y_train, y_test = random_split(X, Y)
     lr = 0.0005 # default learning rate in keras adam
