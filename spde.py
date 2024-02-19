@@ -36,7 +36,6 @@ def kde(data, x_grid):
     n = len(data)
     estimated_density = torch.zeros_like(x_grid).to(device)
     for xi in data:
-        xi = torch.tensor(xi).to(device)
         estimated_density += gaussian_kernel(x_grid, xi, bandwidth)
     return estimated_density / n
 
@@ -422,8 +421,8 @@ def RBF_loss_func(X, y_true, model, optimizer, alpha, device):
     # Second order deravative should follow normal distribution
     # kappa should be half of the range
     W = ((8.0**0.5) / 0.2)**2 * y_pred - out
-    x_grid = torch.linspace(-5, 5, 1000).to(device)
-    W_density = kde(W, x_grid)
+    #x_grid = torch.linspace(-5, 5, 1000).to(device)
+    #W_density = kde(W, x_grid)
     # KDE
     #empirical_pdf = kde(x) # Evaluate the estimated empirical PDF
     #empirical_pdf = np.maximum(empirical_pdf, epsilon)
@@ -434,7 +433,7 @@ def RBF_loss_func(X, y_true, model, optimizer, alpha, device):
     theoretical_pdf = np.maximum(theoretical_pdf, epsilon)
     theoretical_tc = torch.tensor(theoretical_pdf).to(device)
     kl_loss = nn.KLDivLoss(reduction="mean")
-    PINN = torch.square(kl_loss(W_density, theoretical_tc))
+    PINN = torch.square(kl_loss(W, theoretical_tc))
 
     alpha = torch.tensor(alpha)
     #PINN = torch.mean(W**2)
@@ -470,7 +469,7 @@ def RBF_train(X_train, X_val, y_train, y_val, lr, epochs, alpha, device, centers
         y_val_hat = model(X_val_tc).cpu().detach().numpy().reshape(-1)
         val_mse = np.mean((y_val - y_val_hat)**2)
         val_loss.append(val_mse)
-        #live_plot(loss_values, kl_values, total_values, val_loss)
+        live_plot(loss_values, kl_values, total_values, val_loss)
     return model
 
 

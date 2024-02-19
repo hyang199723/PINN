@@ -37,10 +37,10 @@ for i in num_basis:
 dat = np.array(pd.read_csv(wk_dir + "Data/matern_02_1_1.csv", index_col=False, header = None))
 original_dimension = (1300, 3, 100)
 dat_full = dat.reshape(original_dimension)
-alphas = [0, 1, 10, 100]
-iters = 20
+alphas = [0.5]
+iters = 1
 MSE = pd.DataFrame(data = 0.0, index = range(iters), columns = alphas)
-lr = 0.003 # default learning rate in keras adam
+lr = 0.0005 # default learning rate in keras adam
 for i in range(iters):
     sub = dat_full[:, :, i]
     X = sub[:, 0:2]
