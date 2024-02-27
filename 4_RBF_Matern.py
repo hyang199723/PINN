@@ -58,10 +58,12 @@ MSE.to_csv(wk_dir + "Output_New/Matern.csv")
 
 # %% Data with higher variance
 dat = np.array(pd.read_csv(wk_dir + "Data/matern_02_1_5.csv", index_col=False, header = None))
+size = 1300 * 3
+subdat = dat[0:size, :]
 original_dimension = (1300, 3, 100)
-dat_full = dat.reshape(original_dimension)
-alphas = [0,0.01, 0.03, 0.05, 0.08, 0.1, 0.2, 0.3, 0.5, 0.8, 1, 5, 10]
-iters = 50
+dat_full = subdat.reshape(original_dimension)
+alphas = [0, 0.03, 0.08, 0.2, 0.5, 1, 10]#,0.01, 0.03, 0.05, 0.08, 0.1, 0.2, 0.3, 0.5, 0.8, 1, 5, 10]
+iters = 30
 MSE = pd.DataFrame(data = 0.0, index = range(iters), columns = alphas)
 lr = 0.0008 # default learning rate in keras adam
 for i in range(iters):
@@ -79,3 +81,4 @@ for i in range(iters):
         model1_mse = np.mean((y_test - y0_model1)**2)
         MSE.iloc[i, idx] = model1_mse
 MSE.to_csv(wk_dir + "Output_New/Matern_highV.csv")
+# %%
