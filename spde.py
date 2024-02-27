@@ -565,7 +565,6 @@ def gen_matern(N, rho, spatial_var, noise_var, nu):
     Y = np.dot(L, z) + np.random.normal(0, noise_var, n)
     return X, Y
 
-
 # Generate the log-normal process
 def gen_lognormal(N, rho, spatial_var, noise_var, nu):
     n = N
