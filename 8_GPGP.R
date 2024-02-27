@@ -3,51 +3,30 @@ setwd("/Users/hongjianyang/PINN/")
 library(ggplot2)
 library(viridis)
 library(GpGp)
-gen_matern <- function(N, rho, spatial_var, noise_var, nu) {
-  set.seed(123)
-  length <- 1
-  coords <- matrix(runif(N * 2, 0, length), ncol = 2)
-  
-  # Creating design matrix X
-  X <- cbind(rep(1, N), coords)
-  
-  # Exponential Correlation
-  distance <- as.matrix(dist(coords))
-  corr <- Matern(distance, nu = nu, rho = rho)
-  
-  # Cholesky decomposition and generate correlated data
-  L <- chol(spatial_var * corr)
-  z <- rnorm(N)
-  Y <- L %*% z + rnorm(N, sd = sqrt(noise_var))
-  
-  return(list(X = X, Y = Y))
+library(maps)
+dat = read.csv("Data/matern_02_1_1.csv", header = FALSE)
+# Recover the original 3D dataframe
+iters = 100
+full_3D = array(0, dim = c(2000, 3, iters))
+for (i in 1:iters) {
+  slice = dat[, i]
+  lon = slice[seq(1, length(slice), by = 3)]
+  lat = slice[seq(2, length(slice), by = 3)]
+  y = slice[seq(3, length(slice), by = 3)]
+  full_3D[,1,i] = lon
+  full_3D[,2,i] = lat
+  full_3D[,3,i] = y
 }
 
-# Matern function definition
-Matern <- function(distance, nu, rho) {
-  kappa <- sqrt(8 * nu) / rho
-  corr <- 2 ^ (1 - nu) / gamma(nu) * (kappa * distance) ^ nu * besselK(kappa * distance, nu)
-  corr[distance == 0] <- 1
-  return(corr)
-}
-
-
-#MSE = rep(0, iters)
-
-N = 1000
-P = 2
-noise_var = 0.1
-rho = 0.2
-nu = 1
-kappa = (8 * nu)**(0.5) / rho
-spatial_var = 1
-out = gen_matern(N, rho, spatial_var, noise_var, nu)
-X = out$X
-Y = out$Y
-
-full = data.frame(cbind(X[, 2:3], Y))
-colnames(full) <- c("Lon", "Lat", "y")
-train_row = sample(1:N, 800)
+size = 1000
+full = full_3D[1:size,,1]
+# Visualize the data
+df <- data.frame(long=full[,1],lat=full[,2],Y=full[,3])
+ggplot(df, aes(long, lat)) +
+  geom_point(aes(colour = Y)) +
+  scale_colour_gradientn(colours = viridis(10))
+# Train test split
+train_row = sample(1:size, size * 0.8)
 train = full[train_row, ]
 test = full[-train_row, ]
 
@@ -56,17 +35,23 @@ rownames(test) = NULL
 train_loc = as.matrix(train[, 1:2])
 test_loc = as.matrix(test[, 1:2])
 
-train_x = cbind(rep(1, 800), train[, 1:2])
-test_x = cbind(rep(1, 200), test[, 1:2])
 
-fit <- fit_model(train$y, train_loc, train_x, "matern_isotropic")
+fit <- fit_model(train[,3], train_loc, rep(1, size * 0.8), "matern_isotropic",  m_seq = c(10, 30))
+# covparams: variance, range, smoothness, nugget
+params = fit$covparms
+vvv = params[1]
+range = params[2]
+smooth = params[3]
+nugget = params[4]
 
+
+test_x = rep(1, size * 0.2)
 yhat = predictions(fit, test_loc, test_x)
-mse = mean((yhat - test$y)^2)
+mse = mean((yhat - test[,3])^2)
 
-plot(x = test$y, y = yhat)
+plot(x = test[, 3], y = yhat)
   
-plot(x = test_loc[, 1], y = test_loc[, 2], pch = 19, col = test$y + 2)
+plot(x = test_loc[, 1], y = test_loc[, 2], pch = 19, col = test[,3] + 2)
 
 plot(x = test_loc[, 1], y = test_loc[, 2], pch = 19, col = yhat + 2)
 #################################################################
@@ -75,22 +60,31 @@ plot(x = test_loc[, 1], y = test_loc[, 2], pch = 19, col = yhat + 2)
 #################################################################
 # Generate data from GpGp and try GpGp
 #locs <- as.matrix( expand.grid( (1:50)/50, (1:50)/50 ) )
-N = 1000
+iters = 100
+N = 2000
+gpgp_data = array(0, dim = c(N * 3, iters))
 length <- 1
-locs <- matrix(runif(N * 2, 0, length), ncol = 2)
-y <- fast_Gp_sim(c(1, 0.2, 1, 0.1), "matern_isotropic",  locs )
+for (i in 1:iters) {
+  slice = rep(0, N*3)
+  locs <- matrix(runif(N * 2, 0, length), ncol = 2)
+  y <- fast_Gp_sim(c(5, 0.2, 1, 1), "matern_isotropic",  locs, 100)
+  lon = locs[,1]
+  lat = locs[,2]
+  slice[seq(1, length(slice), by = 3)] = lon
+  slice[seq(2, length(slice), by = 3)] = lat
+  slice[seq(3, length(slice), by = 3)] = y
+  gpgp_data[, i] = slice
+}
+full = cbind(lon, lat, y)
+df <- data.frame(long=full[,1],lat=full[,2],Y=full[,3])
+ggplot(df, aes(long, lat)) +
+  geom_point(aes(colour = Y)) +
+  scale_colour_gradientn(colours = viridis(10))
+var(y)
+write.csv(gpgp_data, "Data/gpgp_02_1_5.csv", row.names = F, col.names = NA)
+#dat = read.csv("Data/gpgp_02_1_1.csv", header = T)
 # Matern isotropic variance, range, smoothness, nugget
-
-full = data.frame(cbind(locs, y))
-colnames(full) <- c("Lon", "Lat", "y")
-train_row = sample(1:N, 800)
-train = full[train_row, ]
-test = full[-train_row, ]
-
-
-fit <- fit_model(train$y, train_loc, train_x, "matern_isotropic")
-
-yhat = predictions(fit, test_loc, test_x)
-mse = mean((yhat - test$y)^2)
-
-write.csv(full, "gpgp_matern.csv")
+# The nugget value σ2τ2 is added to the diagonal of the covariance matrix. 
+# NOTE: the nugget is σ2τ2, not τ2.
+fit <- fit_model(y, locs, rep(1, N), "matern_isotropic")
+fit$covparms
