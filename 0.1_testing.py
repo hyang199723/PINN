@@ -3,6 +3,55 @@ import sys
 wk_dir = "/r/bb04na2a.unx.sas.com/vol/bigdisk/lax/hoyang/PINN/"
 sys.path.append(wk_dir)
 
+
+# %% Test kl divergence
+from spde import *
+import torch
+import matplotlib.pyplot as plt
+import pandas as pd
+import numpy as np
+if torch.cuda.is_available():
+    device = torch.device('cuda:1')
+else:
+    device = torch.device('cpu')
+
+def gauss_kde(data, lower, upper, n, bw = None):
+    """
+        Gaussian kernel density estimation
+        data: input data
+        lower, upper: lower and upper bound of the input data
+        bw: bandwidth in estimating the density
+    """
+    x = torch.ravel(data)
+    grid = torch.linspace(lower, upper, n, device=x.device)
+    # default bw: 1.06 * std * n^(-1/5)
+    std = torch.std(x)
+    if bw is None:
+        bw = len(x)**(-1 / 5) * std * 1.06
+    norm_factor = (2 * np.pi)**0.5 * len(x) * bw
+    out = torch.sum(
+        torch.exp(
+            -0.5 * torch.square(
+                (x[:, None] - grid[None, :]) / bw
+            )
+        ),
+        axis=0
+    ) / norm_factor
+    return out
+
+
+
+
+test = torch.normal(0, 5, size = (1, 100000)).to(device)
+out = gauss_kde(test, -10, 10, 10000)
+dat = out.cpu().numpy()
+plt.plot(dat)
+
+torch.cuda.empty_cache()
+
+
+
+
 #%% Test KL divergence using scipy
 import numpy as np
 from scipy.stats import gaussian_kde, norm

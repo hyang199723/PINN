@@ -23,21 +23,7 @@ else:
     device = torch.device('cpu')
 
 torch.pi = (torch.acos(torch.zeros(1)).item() * torch.tensor(2)).to(device)
-# Gaussian kernel function
-def gaussian_kernel(x, xi, bandwidth):
-    bandwidth = torch.tensor(bandwidth).to(device)
-    #print(bandwidth)
-    return (1 / (torch.sqrt(2 * torch.pi).to(device) * bandwidth)) * torch.exp(-((x - xi) ** 2) / (2 * bandwidth ** 2))
 
-# Kernel Density Estimation function
-def kde(data, x_grid):
-    bandwidth = 1.06 * torch.std(data) * (data.size()[0] ** (-1/5))
-    bandwidth = torch.tensor(bandwidth).to(device)
-    n = len(data)
-    estimated_density = torch.zeros_like(x_grid).to(device)
-    for xi in data:
-        estimated_density += gaussian_kernel(x_grid, xi, bandwidth)
-    return estimated_density / n
 
 
 #%% Functions
@@ -382,7 +368,47 @@ class RBFNetwork(nn.Module):
         x = F.relu(self.hidden_layer_3(x))
         x = self.output_layer(x)
         return x
-    
+"""
+# Gaussian kernel function
+def gaussian_kernel(x, xi, bandwidth):
+    bandwidth = torch.tensor(bandwidth).to(device)
+    #print(bandwidth)
+    return (1 / (torch.sqrt(2 * torch.pi).to(device) * bandwidth)) * torch.exp(-((x - xi) ** 2) / (2 * bandwidth ** 2))
+
+# Kernel Density Estimation function
+def kde(data, x_grid):
+    bandwidth = 1.06 * torch.std(data) * (data.size()[0] ** (-1/5))
+    bandwidth = torch.tensor(bandwidth).to(device)
+    n = len(data)
+    estimated_density = torch.zeros_like(x_grid).to(device)
+    for xi in data:
+        estimated_density += gaussian_kernel(x_grid, xi, bandwidth)
+    return estimated_density / n
+"""
+
+def gauss_kde(data, lower, upper, n, bw = None):
+    """
+        Gaussian kernel density estimation
+        data: input data
+        lower, upper: lower and upper bound of the input data
+        bw: bandwidth in estimating the density
+    """
+    x = torch.ravel(data)
+    grid = torch.linspace(lower, upper, n, device=x.device)
+    # default bw: 1.06 * std * n^(-1/5)
+    std = torch.std(x)
+    if bw is None:
+        bw = len(x)**(-1 / 5) * std * 1.06
+    norm_factor = (2 * np.pi)**0.5 * len(x) * bw
+    out = torch.sum(
+        torch.exp(
+            -0.5 * torch.square(
+                (x[:, None] - grid[None, :]) / bw
+            )
+        ),
+        axis=0
+    ) / norm_factor
+    return out
 
 # RBF loss function
 def RBF_loss_func(X, y_true, model, optimizer, alpha, device):
@@ -418,25 +444,25 @@ def RBF_loss_func(X, y_true, model, optimizer, alpha, device):
             create_graph=True
         )[0]
     out = y_xx + y_zz
-    # Second order deravative should follow normal distribution
-    # kappa should be half of the range
+    nnn = 2000 # Numbr of discrete grid of points to evaluate kde
+    lower = -5
+    upper = 5
+    epsilon = 1e-8  # A small value to ensure numerical stability
     W = ((8.0**0.5) / 0.2)**2 * y_pred - out
-    #x_grid = torch.linspace(-5, 5, 1000).to(device)
-    #W_density = kde(W, x_grid)
-    # KDE
-    #empirical_pdf = kde(x) # Evaluate the estimated empirical PDF
-    #empirical_pdf = np.maximum(empirical_pdf, epsilon)
-    #empirical_tc = torch.tensor(empirical_pdf, requires_grad=True) # Convert to torch object
-    x = np.linspace(-5, 5, 1000) # Define the range over which to evaluate the KDE and theoretical PDF
+    W_density = gauss_kde(W, lower, upper, nnn)
+    W_density = torch.maximum(W_density, torch.tensor(epsilon))
+    W_density = torch.log(W_density)
+    #print(W_density)
+    x = np.linspace(lower, upper, nnn) # Define the range over which to evaluate the KDE and theoretical PDF
     theoretical_pdf = norm.pdf(x, 0, 1)
-    epsilon = 1e-10  # A small value to ensure numerical stability
-    theoretical_pdf = np.maximum(theoretical_pdf, epsilon)
+    
+    theoretical_pdf = np.maximum(theoretical_pdf, epsilon) # Take the exponential of target
     theoretical_tc = torch.tensor(theoretical_pdf).to(device)
-    kl_loss = nn.KLDivLoss(reduction="mean")
-    PINN = torch.square(kl_loss(W, theoretical_tc))
+    # Input should be in log space
+    kl_loss = nn.KLDivLoss(reduction="mean") # 1) By default, log_target = false 2) sum of pointwise loss
+    PINN = kl_loss(W_density, theoretical_tc) # input, log_target
 
-    alpha = torch.tensor(alpha)
-    #PINN = torch.mean(W**2)
+    alpha = torch.tensor(alpha).to(device)
     loss = mse_loss + alpha * PINN
     kl_divergence = PINN.cpu().detach().numpy()
     #print(kl_divergence)
@@ -469,7 +495,7 @@ def RBF_train(X_train, X_val, y_train, y_val, lr, epochs, alpha, device, centers
         y_val_hat = model(X_val_tc).cpu().detach().numpy().reshape(-1)
         val_mse = np.mean((y_val - y_val_hat)**2)
         val_loss.append(val_mse)
-        live_plot(loss_values, kl_values, total_values, val_loss)
+        #live_plot(loss_values, kl_values, total_values, val_loss)
     return model
 
 
