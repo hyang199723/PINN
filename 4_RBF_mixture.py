@@ -21,16 +21,6 @@ import scipy.stats as stats
 import pylab
 
 #%% Simulate a 2-D stationary data
-N = 1000
-P = 2
-noise_var = 0.1
-rho = 0.2
-nu = 1
-kappa = (8 * nu)**(0.5) / rho
-spatial_var = 1
-X, Y = gen_mixture(N, spatial_var, noise_var, nu1 = 3.5, nu2 = 0.5,
-                   rho1 = 0.3, rho2 = 0.1)
-X = X[:, 1:3] # Only need coors
 # RBF centers
 num_basis = [3,5,6,8]
 squared = [i**2 for i in num_basis]
@@ -42,51 +32,80 @@ for i in num_basis:
     x = np.array([(x, y) for x in loc for y in loc])
     fixed_centers[sum:sum+i**2] = torch.tensor(x)
     sum += i**2
-
-#%% PLots
-X_train, X_test, y_train, y_test = random_split(X, Y)
-# Visualize train and test
-plt.subplot(1,2,1)
-plt.scatter(X_train[:,0], X_train[:,1], s = 20, c = y_train)
-plt.title("Training data")
-plt.subplot(1,2,2)
-plt.scatter(X_test[:,0], X_test[:,1], s = 20, c = y_test)
-plt.title("Testing data")
-
-
-# %%
-lr = 0.0005 # default learning rate in keras adam
-model_1 = RBF_train(X_train, y_train, lr=lr, epochs=1500, alpha = 10,
-                          device = device, centers=fixed_centers, dims = out_dim)
-#%%
-# Get RMSE
-X_test_tc = torch.tensor(X_test).float().to(device)
-y0_model1 = model_1(X_test_tc).cpu().detach().numpy().reshape(-1)
-plt.subplot(1,2,1)
-plt.scatter(X_test[:, 0], X_test[:, 1], s = 20, c = y_test)
-plt.title("Testing data")
-plt.subplot(1,2,2)
-plt.scatter(X_test[:, 0], X_test[:, 1], s = 20, c = y0_model1)
-model1_mse = np.mean((y_test - y0_model1)**2)
-plt.title(f'Predicted value; MSE = {model1_mse}')
 # %% Replicates
-alphas = [0, 0.5, 1, 2, 4, 8, 16, 32, 64, 100, 256, 512, 1000]
-iters = 100
+dat = np.array(pd.read_csv(wk_dir + "Data/mixture_2500_02_1_1.csv", index_col=False, header = None))
+original_dimension = (2500, 3, 100)
+dat_full = dat.reshape(original_dimension)
+# Visualize train and test
+
+plt.scatter(dat_full[:,0,0], dat_full[:,1,0], s = 20, c = dat_full[:,2,0])
+#%% Sample size = 1300
+alphas = [0, 0.15, 0.3, 0.5, 1, 10]
+iters = 30
 MSE = pd.DataFrame(data = 0.0, index = range(iters), columns = alphas)
-for idx, alpha in enumerate(alphas):
-    print(alpha)
-    X, Y = gen_mixture(N, spatial_var, noise_var, nu1 = 3.5, nu2 = 0.5,
-                   rho1 = 0.3, rho2 = 0.1)
-    X = X[:, 1:3]
-    X_train, X_test, y_train, y_test = random_split(X, Y)
-    lr = 0.0005 # default learning rate in keras adam
-    for j in range(iters):
-        model_1 = RBF_train(X_train, y_train, lr=lr, epochs=1500, alpha = alpha,
+lr = 0.003 # default learning rate in keras adam
+MSE = pd.DataFrame(data = 0.0, index = range(iters), columns = alphas)
+nnn = 5000 # Numbr of discrete grid of points to evaluate kde
+lower = -5
+upper = 5
+x = np.linspace(lower, upper, nnn) # Define the range over which to evaluate the KDE and theoretical PDF
+theoretical_pdf = norm.pdf(x, 0, 1)
+for i in range(iters):
+    print(i)
+    sub = dat_full[0:1300, :, i]
+    X = sub[:, 0:2]
+    Y = sub[:, 2]
+    X_train, X_val, X_test, y_train, y_val, y_test = random_split_val(X, Y)
+    for idx, alpha in enumerate(alphas):
+        #print(alpha)
+        model_1, density = RBF_train(X_train, X_val, y_train, y_val, lr=lr, epochs=3500, alpha = alpha,
+                          device = device, centers=fixed_centers, dims = out_dim, theory = theoretical_pdf)
+        X_test_tc = torch.tensor(X_test).float().to(device)
+        y0_model1 = model_1(X_test_tc).cpu().detach().numpy().reshape(-1)
+        model1_mse = np.mean((y_test - y0_model1)**2)
+        MSE.iloc[i, idx] = model1_mse
+MSE.to_csv(wk_dir + "Output_New/Mixture_longer_chain_1300.csv")
+
+# %% Sample size = 500
+alphas = [0, 0.05, 0.1, 0.2, 0.3, 0.5, 0.8, 1, 10]
+iters = 60
+MSE = pd.DataFrame(data = 0.0, index = range(iters), columns = alphas)
+lr = 0.0005 # default learning rate in keras adam
+MSE = pd.DataFrame(data = 0.0, index = range(iters), columns = alphas)
+for i in range(iters):
+    print(i)
+    sub = dat_full[0:500, :, i]
+    X = sub[:, 0:2]
+    Y = sub[:, 2]
+    X_train, X_val, X_test, y_train, y_val, y_test = random_split_val(X, Y)
+    for idx, alpha in enumerate(alphas):
+        #print(alpha)
+        model_1 = RBF_train(X_train, X_val, y_train, y_val, lr=lr, epochs=1700, alpha = alpha,
                           device = device, centers=fixed_centers, dims = out_dim)
         X_test_tc = torch.tensor(X_test).float().to(device)
         y0_model1 = model_1(X_test_tc).cpu().detach().numpy().reshape(-1)
         model1_mse = np.mean((y_test - y0_model1)**2)
-        MSE.iloc[j, idx] = model1_mse
-MSE.to_csv(wk_dir + "Mixture_MSE.csv")
+        MSE.iloc[i, idx] = model1_mse
+MSE.to_csv(wk_dir + "Output_New/Mixture_MSE_500.csv")
 
-# %%
+#%% Sample size = 2000
+alphas = [0, 0.05, 0.1, 0.2, 0.3, 0.5, 0.8, 1, 10]
+iters = 60
+MSE = pd.DataFrame(data = 0.0, index = range(iters), columns = alphas)
+lr = 0.0005 # default learning rate in keras adam
+MSE = pd.DataFrame(data = 0.0, index = range(iters), columns = alphas)
+for i in range(iters):
+    print(i)
+    sub = dat_full[0:2000, :, i]
+    X = sub[:, 0:2]
+    Y = sub[:, 2]
+    X_train, X_val, X_test, y_train, y_val, y_test = random_split_val(X, Y)
+    for idx, alpha in enumerate(alphas):
+        #print(alpha)
+        model_1 = RBF_train(X_train, X_val, y_train, y_val, lr=lr, epochs=1700, alpha = alpha,
+                          device = device, centers=fixed_centers, dims = out_dim)
+        X_test_tc = torch.tensor(X_test).float().to(device)
+        y0_model1 = model_1(X_test_tc).cpu().detach().numpy().reshape(-1)
+        model1_mse = np.mean((y_test - y0_model1)**2)
+        MSE.iloc[i, idx] = model1_mse
+MSE.to_csv(wk_dir + "Output_New/Mixture_MSE_2000.csv")
