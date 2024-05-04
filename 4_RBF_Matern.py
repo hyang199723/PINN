@@ -1,7 +1,8 @@
 
 #%% Packages
 import sys
-wk_dir = "/r/bb04na2a.unx.sas.com/vol/bigdisk/lax/hoyang/PINN/"
+#wk_dir = "/r/bb04na2a.unx.sas.com/vol/bigdisk/lax/hoyang/PINN/
+wk_dir = 'C://Users//hyang23//PINN//'
 sys.path.append(wk_dir)
 import torch
 import matplotlib.pyplot as plt
@@ -12,21 +13,21 @@ import torch.nn as nn
 import torch.optim as optim
 from scipy.special import gamma, kn
 if torch.cuda.is_available():
-    device = torch.device('cuda:1')
+    device = torch.device('cuda:0')
 else:
     device = torch.device('cpu')
 import scipy.stats as stats
 import pylab
 from spde import *
-
-#Replicates
+import time
+# %% Replicates
 # Read data
 dat = np.array(pd.read_csv(wk_dir + "Data/matern_02_1_1.csv", index_col=False, header = None))
 original_dimension = (8000, 3, 100)
 dat_full = dat.reshape(original_dimension)
 
 plt.scatter(dat_full[:,0,0], dat_full[:,1,0], s = 20, c = dat_full[:,2,0])
-
+# %%
 alphas = [0]# 0, 10, 100, 1000, 
 iters = 1
 MSE = pd.DataFrame(data = 0.0, index = range(iters), columns = alphas)
@@ -42,10 +43,11 @@ num_centers = [9,25,36,64]
 # Number of layers and neurons
 layers = 2
 neurons = 100
-eee = 5
+eee = 1300
+t1 = time.time()
 for i in range(iters):
     print(i)
-    sub = dat_full[0:1000, :, i]
+    sub = dat_full[0:2000, :, i]
     X = sub[:, 0:2]
     Y = sub[:, 2]
     X_train, X_val, X_test, y_train, y_val, y_test = random_split_val(X, Y)
@@ -58,6 +60,8 @@ for i in range(iters):
         y0_model1 = model_1(X_test_tc).cpu().detach().numpy().reshape(-1)
         model1_mse = np.mean((y_test - y0_model1)**2)
         MSE.iloc[i, idx] = model1_mse
+
+t2 = time.time()
 #MSE.to_csv(wk_dir + "Output_correct/DK_16layer.csv")
 #d = np.exp(density)
 #plt.plot(d)

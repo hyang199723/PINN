@@ -19,11 +19,10 @@ import torch.nn as nn
 import torch.nn.functional as F
 import copy
 if torch.cuda.is_available():
-    device = torch.device('cuda:1')
+    device = torch.device('cuda:0')
 else:
     device = torch.device('cpu')
 
-torch.pi = (torch.acos(torch.zeros(1)).item() * torch.tensor(2)).to(device)
 
 
 
