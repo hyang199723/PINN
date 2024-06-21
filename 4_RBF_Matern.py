@@ -29,8 +29,8 @@ dat_full = dat.reshape(original_dimension)
 
 plt.scatter(dat_full[:,0,0], dat_full[:,1,0], s = 20, c = dat_full[:,2,0])
 # %%
-alphas = [0]# 0, 10, 100, 1000, 
-iters = 1
+alphas = [0, 0.025, 0.05, 0.1, 0.5]# 0, 10, 100, 1000, 
+iters = 10
 MSE = pd.DataFrame(data = 0.0, index = range(iters), columns = alphas)
 lr = 0.002 # default learning rate in keras adam
 nnn = 5000 # Numbr of discrete grid of points to evaluate kde
