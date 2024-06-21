@@ -21,6 +21,7 @@ else:
 import scipy.stats as stats
 from spde import *
 import time
+print(device)
 # %% Replicates
 # Read data
 dat = np.array(pd.read_csv(wk_dir + "Data/matern_02_1_1.csv", index_col=False, header = None))
