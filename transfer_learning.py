@@ -1,6 +1,6 @@
 #%% Packages
 import sys
-wk_dir = "/r/bb04na2a.unx.sas.com/vol/bigdisk/lax/hoyang/PINN/"
+wk_dir = '/Users/hongjianyang/PINN/'
 sys.path.append(wk_dir)
 import torch
 import matplotlib.pyplot as plt
@@ -17,9 +17,9 @@ else:
 import scipy.stats as stats
 import pylab
 from spde import *
-
-
-n = 30#, 8, 10, 15]
+iters = 100
+# %%
+n = 55#, 8, 10, 15]
 N = int(n**2) ## sample size
 M = 1 ## Number of replicate
 coord1 = np.linspace(0,1,n)
@@ -43,14 +43,14 @@ plt.ylabel('$s_2$')
 plt.title('Sample Non-stationary Process')
 plt.colorbar(im)
 plt.show()
-# %% Train the foundation model
+# %% Train the base model on non stationary data
 alpha = 0
 #alphas = [0]# 0, 10, 100, 1000, 
 # Number of layers and neurons
 #layers = 3
 neurons = 100
-layer = 7
-lr = 0.001 # default learning rate in keras adam
+layer = 5
+lr = 0.002 # default learning rate in keras adam
 nnn = 5000 # Numbr of discrete grid of points to evaluate kde
 lower = -800
 upper = 800
@@ -58,7 +58,7 @@ KL_params = [nnn, lower, upper]
 x = np.linspace(lower, upper, nnn) # Define the range over which to evaluate the KDE and theoretical PDF
 theoretical_pdf = norm.pdf(x, 0, 202)
 rho = 0.2
-num_centers = [10**2,19**2,37**2]
+num_centers = [9,25,36,64]
 #num_centers = [20**2,38**2,70**2]
 eee = 1500 # NN iterations
 X = s
@@ -69,43 +69,91 @@ model_1, _, _ = RBF_train(X, X, Y, Y, lr=lr, epochs=eee, alpha = 0,
                           theory = theoretical_pdf, rho = rho, kl_params = KL_params,
                           layers = layer, neurons=neurons)
 
-# %% Pre-train on matern data
-dat = np.array(pd.read_csv(wk_dir + "Data/matern_02_1_1.csv", index_col=False, header = None))
-original_dimension = (8000, 3, 100)
-dat_full = dat.reshape(original_dimension)
-
+# %% Pre-train on matern data with 3000 samples
 alpha = 0# 0, 10, 100, 1000, 
-iters = 1
-lr = 0.001 # default learning rate in keras adam
+lr = 0.002 # default learning rate in keras adam
 nnn = 5000 # Numbr of discrete grid of points to evaluate kde
 lower = -800
 upper = 800
 KL_params = [nnn, lower, upper]
+num_centers = [9,25,36,64]
 x = np.linspace(lower, upper, nnn) # Define the range over which to evaluate the KDE and theoretical PDF
 theoretical_pdf = norm.pdf(x, 0, 202)
 rho = 0.2
 #num_centers = [9,25,36,64]
 # Number of layers and neurons
 neurons = 100
-layer = 7
+layer = 5
 eee = 1500
-sub = dat_full[0:N, :, 0]
+sub = dat_full[0:3000, :, 0]
 X = sub[:, 0:2]
 Y = sub[:, 2]
-model_2, _, _ = RBF_train(X, X, Y, Y, lr=lr, epochs=eee, alpha = 0,
+model_2_3000, _, _ = RBF_train(X, X, Y, Y, lr=lr, epochs=eee, alpha = 0,
                           device = device, n_centers=num_centers, 
                           theory = theoretical_pdf, rho = rho, kl_params = KL_params,
                           layers = layer, neurons=neurons)
-# %% Transfer learning result on smaller data sizes
+
+# %% Pre-train on matern data with 6000 samples
+sub = dat_full[0:6000, :, 0]
+X = sub[:, 0:2]
+Y = sub[:, 2]
+model_2_6000, _, _ = RBF_train(X, X, Y, Y, lr=lr, epochs=eee, alpha = 0,
+                          device = device, n_centers=num_centers, 
+                          theory = theoretical_pdf, rho = rho, kl_params = KL_params,
+                          layers = layer, neurons=neurons)
+
+# %% Pre-train on matern 2 with 3000 samples
+dat = np.array(pd.read_csv(wk_dir + "Data/matern_02_1_5.csv", index_col=False, header = None))
+original_dimension = (5000, 3, 100)
+dat_full = dat.reshape(original_dimension)
+
+alpha = 0# 0, 10, 100, 1000, 
+lr = 0.002 # default learning rate in keras adam
+nnn = 5000 # Numbr of discrete grid of points to evaluate kde
+lower = -800
+upper = 800
+KL_params = [nnn, lower, upper]
+num_centers = [9,25,36,64]
+x = np.linspace(lower, upper, nnn) # Define the range over which to evaluate the KDE and theoretical PDF
+theoretical_pdf = norm.pdf(x, 0, 202)
+rho = 0.2
+#num_centers = [9,25,36,64]
+# Number of layers and neurons
+neurons = 100
+layer = 5
+eee = 1500
+sub = dat_full[0:3000, :, 0]
+X = sub[:, 0:2]
+Y = sub[:, 2]
+model_3_3000, _, _ = RBF_train(X, X, Y, Y, lr=lr, epochs=eee, alpha = 0,
+                          device = device, n_centers=num_centers, 
+                          theory = theoretical_pdf, rho = rho, kl_params = KL_params,
+                          layers = layer, neurons=neurons)
+#%% 
+##################
+##################
+##################
+stat_3000_foundation = copy.deepcopy(model_2_3000)
+stat_6000_foundation = copy.deepcopy(model_2_6000)
+case2_3000 = copy.deepcopy(model_3_3000)
+
+
+dat = np.array(pd.read_csv(wk_dir + "Data/matern_02_1_1.csv", index_col=False, header = None))
+original_dimension = (8000, 3, 100)
+dat_full = dat.reshape(original_dimension)
+
+
+
+# %% Case 4: Transfer learning result on smaller data sizes
 import copy
 nonstat_foundation = copy.deepcopy(model_1)
-stat_foundation = copy.deepcopy(model_2)
-sizes = [5, 8, 10, 15]
-iters = 10
+
+sizes = [0]
 MSE_nonstat = pd.DataFrame(data = 0.0, index = range(iters), columns = sizes)
-eee = 1000
+eee = 1500
 for i in range(iters):
     for (idx, n) in enumerate(sizes):
+        n = 18
         N = int(n**2) ## sample size
         M = 1 ## Number of replicate
         coord1 = np.linspace(0,1,n)
@@ -129,19 +177,62 @@ for i in range(iters):
         y0_model1 = model(X_test_tc).cpu().detach().numpy().reshape(-1)
         model1_mse = np.mean((y_test - y0_model1)**2)
         MSE_nonstat.iloc[i, idx] = model1_mse
-MSE_nonstat.to_csv(wk_dir + "Output_transfer/nonstat_transfer.csv")
-# %%
+# %% Case 1: Transfer 3000 base model on 300 target data
+sizes = [0]
 MSE_stat = pd.DataFrame(data = 0.0, index = range(iters), columns = sizes)
-eee = 1000
+eee = 1500
+for i in range(iters):
+    print(i)
+    for (idx, n) in enumerate(sizes):
+        sub = dat_full[0:300, :, i]
+        X = sub[:, 0:2]
+        Y = sub[:, 2]
+        X_train, X_val, X_test, y_train, y_val, y_test = random_split_val(X, Y)
+        stat_model = copy.deepcopy(stat_3000_foundation)
+        model, _, _ = RBF_train(X_train, X_val, y_train, y_val, lr=lr, epochs=eee, alpha = 0,
+                          device = device, n_centers=num_centers, 
+                          theory = theoretical_pdf, rho = rho, kl_params = KL_params,
+                          layers = layer, neurons=neurons, raw_model = stat_model)
+        X_test_tc = torch.tensor(X_test).float().to(device)
+        y0_model1 = model(X_test_tc).cpu().detach().numpy().reshape(-1)
+        model1_mse = np.mean((y_test - y0_model1)**2)
+        MSE_stat.iloc[i, idx] = model1_mse
+        
+# %% Case 2: Transfer 3000 base model on 300 target data
+sizes = [0]
+MSE_stat = pd.DataFrame(data = 0.0, index = range(iters), columns = sizes)
+eee = 1500
+for i in range(iters):
+    print(i)
+    for (idx, n) in enumerate(sizes):
+        sub = dat_full[0:300, :, i]
+        X = sub[:, 0:2]
+        Y = sub[:, 2]
+        X_train, X_val, X_test, y_train, y_val, y_test = random_split_val(X, Y)
+        stat_model = copy.deepcopy(case2_3000)
+        model, _, _ = RBF_train(X_train, X_val, y_train, y_val, lr=lr, epochs=eee, alpha = 0,
+                          device = device, n_centers=num_centers, 
+                          theory = theoretical_pdf, rho = rho, kl_params = KL_params,
+                          layers = layer, neurons=neurons, raw_model = stat_model)
+        X_test_tc = torch.tensor(X_test).float().to(device)
+        y0_model1 = model(X_test_tc).cpu().detach().numpy().reshape(-1)
+        model1_mse = np.mean((y_test - y0_model1)**2)
+        MSE_stat.iloc[i, idx] = model1_mse
+        
+        
+# %% Case 3: Transfer 6000 base model on 300 target data
+sizes = [0]
+MSE_stat = pd.DataFrame(data = 0.0, index = range(iters), columns = sizes)
+eee = 1500
 for i in range(iters):
     print(i)
     for (idx, n) in enumerate(sizes):
         n = n**2
-        sub = dat_full[0:n, :, i]
+        sub = dat_full[0:300, :, i]
         X = sub[:, 0:2]
         Y = sub[:, 2]
         X_train, X_val, X_test, y_train, y_val, y_test = random_split_val(X, Y)
-        stat_model = copy.deepcopy(stat_foundation)
+        stat_model = copy.deepcopy(stat_6000_foundation)
         model, _, _ = RBF_train(X_train, X_val, y_train, y_val, lr=lr, epochs=eee, alpha = alpha,
                           device = device, n_centers=num_centers, 
                           theory = theoretical_pdf, rho = rho, kl_params = KL_params,
@@ -150,15 +241,16 @@ for i in range(iters):
         y0_model1 = model(X_test_tc).cpu().detach().numpy().reshape(-1)
         model1_mse = np.mean((y_test - y0_model1)**2)
         MSE_stat.iloc[i, idx] = model1_mse
-MSE_stat.to_csv(wk_dir + "Output_transfer/stat_transfer.csv")
-# %% Get MSE without transfer learning
-sizes = [5, 8, 10, 15]
-iters = 10
+
+
+#%% Target only
+sizes = [0]
 MSE_nonstat = pd.DataFrame(data = 0.0, index = range(iters), columns = sizes)
 eee = 1500
 for i in range(iters):
     print(i)
     for (idx, n) in enumerate(sizes):
+        n = 18
         N = int(n**2) ## sample size
         M = 1 ## Number of replicate
         coord1 = np.linspace(0,1,n)
@@ -173,34 +265,11 @@ for i in range(iters):
         X = s
         Y = y
         X_train, X_val, X_test, y_train, y_val, y_test = random_split_val(X, Y)
-        nonstat_model = None
         model, _, _ = RBF_train(X_train, X_val, y_train, y_val, lr=lr, epochs=eee, alpha = 0,
                           device = device, n_centers=num_centers, 
                           theory = theoretical_pdf, rho = rho, kl_params = KL_params,
-                          layers = layer, neurons=neurons, raw_model = nonstat_model)
+                          layers = layer, neurons=neurons)
         X_test_tc = torch.tensor(X_test).float().to(device)
         y0_model1 = model(X_test_tc).cpu().detach().numpy().reshape(-1)
         model1_mse = np.mean((y_test - y0_model1)**2)
         MSE_nonstat.iloc[i, idx] = model1_mse
-MSE_nonstat.to_csv(wk_dir + "Output_transfer/nonstat.csv")
-
-MSE_stat = pd.DataFrame(data = 0.0, index = range(iters), columns = sizes)
-for i in range(iters):
-    print(i)
-    for (idx, n) in enumerate(sizes):
-        n = n**2
-        sub = dat_full[0:n, :, i]
-        X = sub[:, 0:2]
-        Y = sub[:, 2]
-        X_train, X_val, X_test, y_train, y_val, y_test = random_split_val(X, Y)
-        stat_model = None
-        model, _, _ = RBF_train(X_train, X_val, y_train, y_val, lr=lr, epochs=eee, alpha = alpha,
-                          device = device, n_centers=num_centers, 
-                          theory = theoretical_pdf, rho = rho, kl_params = KL_params,
-                          layers = layer, neurons=neurons, raw_model = stat_model)
-        X_test_tc = torch.tensor(X_test).float().to(device)
-        y0_model1 = model(X_test_tc).cpu().detach().numpy().reshape(-1)
-        model1_mse = np.mean((y_test - y0_model1)**2)
-        MSE_stat.iloc[i, idx] = model1_mse
-MSE_stat.to_csv(wk_dir + "Output_transfer/stat.csv")
-# %%

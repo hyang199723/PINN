@@ -295,6 +295,46 @@ class RBFNetwork(nn.Module):
         x = self.output_layer(x)
         return x
 
+class ModifiedModel(nn.Module):
+    def __init__(self, original_model):
+        super().__init__()
+
+        # Extract layers from the original model
+        self.rbf_layer = original_model.rbf_layer
+        self.fc_hidden_layer = original_model.fc_hidden_layer
+        self.hidden_layers = original_model.hidden_layers
+        
+        # Freeze parameters in extracted layers
+        for param in self.rbf_layer.parameters():
+            param.requires_grad = False
+        for param in self.fc_hidden_layer.parameters():
+            param.requires_grad = False
+            for layer in self.hidden_layers:
+                    for param in layer.parameters():
+                        param.requires_grad = False
+
+    
+        # Define 5 new fully connected layers
+        self.fc1 = nn.Linear(100, 100)  # Adjust output sizes as needed
+        self.fc2 = nn.Linear(100, 100)
+        self.fc3 = nn.Linear(100, 100)
+        self.fc4 = nn.Linear(100, 100)
+        self.fc5 = nn.Linear(100, 1)  
+
+    def forward(self, x):
+        x = self.rbf_layer(x)
+        x = self.fc_hidden_layer(x)
+        for layer in self.hidden_layers:
+            x = layer(x)
+
+        x = nn.functional.relu(self.fc1(x))  
+        x = nn.functional.relu(self.fc2(x))
+        x = nn.functional.relu(self.fc3(x))
+        x = nn.functional.relu(self.fc4(x))
+        x = self.fc5(x)  # No activation on final layer for regression
+        return x
+
+
 def gauss_kde(data, lower, upper, n, bw = None):
     """
         Gaussian kernel density estimation
@@ -443,7 +483,7 @@ def RBF_train(X_train, X_val, y_train, y_val, lr, epochs, alpha, device, n_cente
     if raw_model == None:
         model = RBFNetwork(n_centers=n_centers, n_layers = layers, n_neurons = neurons).to(device)
     else:
-        model = raw_model
+        model = ModifiedModel(raw_model)
     # optimizer = torch.optim.SGD(model.parameters(), lr=2e-3)
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
     #early_stopping = EarlyStopping(patience=10, verbose=False, path='model_checkpoint.pt')
@@ -456,17 +496,9 @@ def RBF_train(X_train, X_val, y_train, y_val, lr, epochs, alpha, device, n_cente
         mse_loss, kl, total_loss, density, W = RBF_loss_func(X_train_tc, y_train_tc, model, optimizer, alpha, device, theory, rho, kl_params)
         optimizer.step()
         # Early stopping
-        #model.eval()
-        #val_mse = 0
+
         with torch.no_grad():
             output = model(X_val_tc)
-        #val_mse += torch.mean((output-y_val_tc)**2)
-        #val_mse /= i + 1
-        # Early Stopping
-        #early_stopping(val_mse, model)
-        #if early_stopping.early_stop:
-        #    print("Early stopping")
-        #    break
 
         # Plotting
         loss_values.append(mse_loss.cpu().detach().numpy())

@@ -2,7 +2,8 @@
 
 #%% Packages
 import sys
-wk_dir = "/r/bb04na2a.unx.sas.com/vol/bigdisk/lax/hoyang/PINN/"
+# wk_dir = "/Users/hongjianyang/PINN/"
+wk_dir = "/share/bjreich/hyang23/PINN"
 sys.path.append(wk_dir)
 import torch
 import numpy as np
@@ -83,10 +84,10 @@ for i in range(iters):
     matern_data[:, 2, i] = Y
 # Save to data file for comparison
 matern_data_flat = matern_data.reshape(-1, matern_data.shape[-1])
-np.savetxt("Data/matern_01_1_1.csv", matern_data_flat, delimiter=",")
+np.savetxt(wk_dir + "Data/matern_01_1_1.csv", matern_data_flat, delimiter=",")
 
 # %% 2-D stationary process with higher spatial and nugget variance
-N = 2000
+N = 5000
 P = 2
 noise_std = 5**0.5
 rho = 0.2
@@ -103,7 +104,7 @@ for i in range(iters):
     matern_data[:, 2, i] = Y
 # Save to data file for comparison
 matern_data_flat = matern_data.reshape(-1, matern_data.shape[-1])
-np.savetxt("Data/matern_02_1_5.csv", matern_data_flat, delimiter=",")
+np.savetxt(wk_dir + "Data/matern_02_1_5.csv", matern_data_flat, delimiter=",")
 # %% Generate non-stationary mixture process
 N = 2500
 P = 2
