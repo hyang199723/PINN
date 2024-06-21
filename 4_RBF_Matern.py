@@ -3,8 +3,8 @@
 import sys
 #wk_dir = "/r/bb04na2a.unx.sas.com/vol/bigdisk/lax/hoyang/PINN/
 # wk_dir = 'C://Users//hyang23//PINN//'
-# wk_dir = '/Users/hongjianyang/PINN/'
-wk_dir = "/share/bjreich/hyang23/PINN"
+#wk_dir = '/Users/hongjianyang/PINN/'
+wk_dir = "/share/bjreich/hyang23/PINN/"
 sys.path.append(wk_dir)
 import torch
 import matplotlib.pyplot as plt
@@ -19,7 +19,6 @@ if torch.cuda.is_available():
 else:
     device = torch.device('cpu')
 import scipy.stats as stats
-import pylab
 from spde import *
 import time
 # %% Replicates
@@ -64,7 +63,7 @@ for i in range(iters):
         MSE.iloc[i, idx] = model1_mse
 toc = time.time()
 print(f'Total elipsed: {toc - tic}')
-MSE.to_csv(wk_dir + "DK_16layer.csv")
+MSE.to_csv(wk_dir + "DK_5layer.csv")
 #d = np.exp(density)
 #plt.plot(d)
 #plt.title("Residual SPDE density for alpha=100000, iters = 3500, mse=0.22")
@@ -340,3 +339,5 @@ MSE.to_csv(wk_dir + "DK_16layer.csv")
 #         MSE.iloc[i, idx] = model1_mse
 # MSE.to_csv(wk_dir + "Output_New/Matern_highV_sup.csv")
 # # %% 
+
+
