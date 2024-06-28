@@ -41,7 +41,7 @@ KL_params = [nnn, lower, upper]
 x = np.linspace(lower, upper, nnn) # Define the range over which to evaluate the KDE and theoretical PDF
 theoretical_pdf = norm.pdf(x, 0, 202)
 rho = 0.2
-num_centers = [i**2 for i in range(10, 25, 4)] # 1104
+num_centers = [i**2 for i in range(14, 40, 8)] # 3024
 # Number of layers and neurons
 layers = 5
 neurons = 50
@@ -62,7 +62,7 @@ for i in range(iters):
         model1_mse = np.mean((y_test - y0_model1)**2)
         MSE.iloc[i, idx] = model1_mse
 toc = time.time()
-MSE.to_csv(wk_dir + "HPC/" + "L5N50S3000_0211_bas1104.csv")
+MSE.to_csv(wk_dir + "HPC/" + "L5N50S3000_0211_bas3024.csv")
 #d = np.exp(density)
 #plt.plot(d)
 #plt.title("Residual SPDE density for alpha=100000, iters = 3500, mse=0.22")
