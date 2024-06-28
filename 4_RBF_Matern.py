@@ -48,7 +48,7 @@ neurons = 50
 eee = 1300
 for i in range(iters):
     print(i)
-    sub = dat_full[0:5000, :, i]
+    sub = dat_full[0:7000, :, i]
     X = sub[:, 0:2]
     Y = sub[:, 2]
     X_train, X_val, X_test, y_train, y_val, y_test = random_split_val(X, Y)
@@ -62,7 +62,7 @@ for i in range(iters):
         model1_mse = np.mean((y_test - y0_model1)**2)
         MSE.iloc[i, idx] = model1_mse
 toc = time.time()
-MSE.to_csv(wk_dir + "HPC/" + "L7N50S5000_0211_bas1104.csv")
+MSE.to_csv(wk_dir + "HPC/" + "L7N50S7000_0211_bas1104.csv")
 #d = np.exp(density)
 #plt.plot(d)
 #plt.title("Residual SPDE density for alpha=100000, iters = 3500, mse=0.22")
