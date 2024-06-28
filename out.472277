@@ -1,0 +1,53 @@
+
+------------------------------------------------------------
+Sender: LSF System <lsfadmin@gpu13>
+Subject: Job 472277: <#!/bin/bash;#BSUB -n 1;#BSUB -W 300;#BSUB -q gpu;#BSUB -m "gpu_h100 gpu_a100";#BSUB -gpu "num=1";#BSUB -o out.%J;#BSUB -e err.%;/usr/local/usrapps/bjreich/hyang23/PINN/bin/python /share/bjreich/hyang23/PINN/4_RBF_Matern.py> in cluster <Hazel> Exited
+
+Job <#!/bin/bash;#BSUB -n 1;#BSUB -W 300;#BSUB -q gpu;#BSUB -m "gpu_h100 gpu_a100";#BSUB -gpu "num=1";#BSUB -o out.%J;#BSUB -e err.%;/usr/local/usrapps/bjreich/hyang23/PINN/bin/python /share/bjreich/hyang23/PINN/4_RBF_Matern.py> was submitted from host <login03> by user <hyang23> in cluster <Hazel> at Fri Jun 21 09:18:21 2024
+Job was executed on host(s) <gpu13>, in queue <gpu>, as user <hyang23> in cluster <Hazel> at Fri Jun 21 09:18:23 2024
+</home/hyang23> was used as the home directory.
+</share/bjreich/hyang23/PINN> was used as the working directory.
+Started at Fri Jun 21 09:18:23 2024
+Terminated at Fri Jun 21 09:19:03 2024
+Results reported at Fri Jun 21 09:19:03 2024
+
+Your job looked like:
+
+------------------------------------------------------------
+# LSBATCH: User input
+#!/bin/bash
+#BSUB -n 1
+#BSUB -W 300
+#BSUB -q gpu
+#BSUB -m "gpu_h100 gpu_a100"
+#BSUB -gpu "num=1"
+#BSUB -o out.%J
+#BSUB -e err.%
+/usr/local/usrapps/bjreich/hyang23/PINN/bin/python /share/bjreich/hyang23/PINN/4_RBF_Matern.py
+
+
+------------------------------------------------------------
+
+Exited with exit code 1.
+
+Resource usage summary:
+
+    CPU time :                                   6.78 sec.
+    Max Memory :                                 -
+    Average Memory :                             -
+    Total Requested Memory :                     -
+    Delta Memory :                               -
+    Max Swap :                                   -
+    Max Processes :                              4
+    Max Threads :                                6
+    Run time :                                   65 sec.
+    Turnaround time :                            42 sec.
+
+The output (if any) is above this job summary.
+
+
+
+PS:
+
+Read file <err.%> for stderr output of this job.
+
