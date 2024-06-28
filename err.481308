@@ -1,4 +1,0 @@
-/usr/local/usrapps/bjreich/hyang23/PINN/lib/python3.12/site-packages/torch/functional.py:512: UserWarning: torch.meshgrid: in an upcoming release, it will be required to pass the indexing argument. (Triggered internally at /opt/conda/conda-bld/pytorch_1716905971214/work/aten/src/ATen/native/TensorShape.cpp:3587.)
-  return _VF.meshgrid(tensors, **kwargs)  # type: ignore[attr-defined]
-/usr/local/usrapps/bjreich/hyang23/PINN/lib/python3.12/site-packages/torch/autograd/graph.py:744: UserWarning: Attempting to run cuBLAS, but there was no current CUDA context! Attempting to set the primary context... (Triggered internally at /opt/conda/conda-bld/pytorch_1716905971214/work/aten/src/ATen/cuda/CublasHandlePool.cpp:135.)
-  return Variable._execution_engine.run_backward(  # Calls into the C++ engine to run the backward pass

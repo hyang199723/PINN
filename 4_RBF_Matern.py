@@ -30,8 +30,8 @@ dat_full = dat.reshape(original_dimension)
 
 plt.scatter(dat_full[:,0,0], dat_full[:,1,0], s = 20, c = dat_full[:,2,0])
 # %%
-alphas = [0, 0.025, 0.05, 0.1, 0.5]# 0, 10, 100, 1000, 
-iters = 10
+alphas = [0, 0.025, 0.05, 0.1, 0.5, 1]# 0, 10, 100, 1000, 
+iters = 50
 MSE = pd.DataFrame(data = 0.0, index = range(iters), columns = alphas)
 lr = 0.002 # default learning rate in keras adam
 nnn = 5000 # Numbr of discrete grid of points to evaluate kde
@@ -46,7 +46,6 @@ num_centers = [9,25,36,64]
 layers = 5
 neurons = 50
 eee = 1300
-tic = time.time()
 for i in range(iters):
     print(i)
     sub = dat_full[0:3000, :, i]
@@ -63,8 +62,7 @@ for i in range(iters):
         model1_mse = np.mean((y_test - y0_model1)**2)
         MSE.iloc[i, idx] = model1_mse
 toc = time.time()
-print(f'Total elipsed: {toc - tic}')
-MSE.to_csv(wk_dir + "DK_5layer.csv")
+MSE.to_csv(wk_dir + "HPC/" + "L5N50S3000_0211.csv")
 #d = np.exp(density)
 #plt.plot(d)
 #plt.title("Residual SPDE density for alpha=100000, iters = 3500, mse=0.22")
