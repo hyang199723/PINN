@@ -1,0 +1,1 @@
+import pandas as pdwk_dir = '/Users/hongjianyang/PINN/'L5N50 = pd.read_csv(wk_dir + "HPC/L5N50S3000_0211_bas1104.csv")L5N100 = pd.read_csv(wk_dir + "HPC/L5N100S3000_0211_bas1104.csv")L5N100 = pd.read_csv(wk_dir + "HPC/L7N50S3000_0211_bas1104.csv")small_base = pd.read_csv(wk_dir + "HPC/L5N50S3000_0211.csv")
